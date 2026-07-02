@@ -7,6 +7,7 @@
  * Author:      Dox Studio
  * Author URI:  https://doxstudio.com
  * License:     GPL-2.0+
+ * Update URI:  https://github.com/davidzoque/dox-functions
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -27,3 +28,25 @@ register_activation_hook( __FILE__, array( 'Dox_Functions', 'activate' ) );
 register_deactivation_hook( __FILE__, array( 'Dox_Functions', 'deactivate' ) );
 
 add_action( 'plugins_loaded', array( 'Dox_Functions', 'instance' ) );
+
+// ─── Auto-actualizaciones desde GitHub (Plugin Update Checker) ────────────────
+// El plugin se actualiza desde las releases del repo de GitHub, no desde
+// WordPress.org. Para repos privados, define el token en wp-config.php:
+//     define( 'DOX_FUNCTIONS_GITHUB_TOKEN', 'github_pat_xxxxxxxx' );
+// (fine-grained PAT con permiso de solo lectura de "Contents" sobre el repo)
+$dox_functions_puc = DOX_FUNCTIONS_DIR . 'vendor/plugin-update-checker/plugin-update-checker.php';
+if ( file_exists( $dox_functions_puc ) ) {
+	require_once $dox_functions_puc;
+
+	$dox_functions_update_checker = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+		'https://github.com/davidzoque/dox-functions/',
+		__FILE__,
+		'dox-functions'
+	);
+	$dox_functions_update_checker->setBranch( 'main' );
+	// Usa el ZIP limpio que el workflow de GitHub Actions adjunta a cada release
+	$dox_functions_update_checker->getVcsApi()->enableReleaseAssets();
+	if ( defined( 'DOX_FUNCTIONS_GITHUB_TOKEN' ) && DOX_FUNCTIONS_GITHUB_TOKEN ) {
+		$dox_functions_update_checker->setAuthentication( DOX_FUNCTIONS_GITHUB_TOKEN );
+	}
+}
