@@ -1,0 +1,318 @@
+/* Dox Functions — admin UI */
+:root {
+	--dox-orange: #ff8d27;
+	--dox-orange-soft: #ffe7d0;
+	--dox-orange-dark: #e57514;
+	--dox-text: #1c1c1c;
+	/* 4.8:1 on white — #7a7a7a failed WCAG AA for the small sizes it's used at. */
+	--dox-muted: #6b6b6b;
+	--dox-border: #ececec;
+	--dox-bg: #f6f7f9;
+	--dox-danger: #a3261c;
+	--dox-radius: 14px;
+	--dox-shadow: 0 1px 3px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.04);
+}
+
+#wpcontent { background: var(--dox-bg); }
+
+.dox-wrap {
+	max-width: 1200px;
+	margin: 20px 20px 40px 0;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	color: var(--dox-text);
+}
+
+.dox-card {
+	background: #fff;
+	border: 1px solid var(--dox-border);
+	border-radius: var(--dox-radius);
+	box-shadow: var(--dox-shadow);
+	padding: 22px 24px;
+	margin-bottom: 18px;
+}
+
+.dox-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+.dox-brand { display: flex; align-items: center; gap: 14px; }
+.dox-logo-img { height: 32px; width: auto; display: block; }
+.dox-pill {
+	display: inline-block;
+	margin-left: 8px;
+	padding: 4px 10px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 1px;
+	border-radius: 999px;
+	color: var(--dox-orange-dark);
+	background: var(--dox-orange-soft);
+	border: 1px solid #ffd5b3;
+}
+
+.dox-header-actions { display: flex; gap: 10px; }
+
+.dox-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 10px 18px;
+	border-radius: 10px;
+	font-weight: 600;
+	font-size: 14px;
+	text-decoration: none;
+	border: 1px solid transparent;
+	cursor: pointer;
+	transition: .15s ease;
+}
+/* Dark text on brand orange: 7.5:1 — white text on this orange was 2.3:1. */
+.dox-btn-primary {
+	background: var(--dox-orange);
+	color: var(--dox-text);
+}
+.dox-btn-primary:hover { background: var(--dox-orange-dark); color: var(--dox-text); }
+.dox-btn-ghost {
+	background: #fff;
+	border-color: var(--dox-border);
+	color: var(--dox-text);
+}
+.dox-btn-ghost:hover { border-color: var(--dox-orange); color: var(--dox-orange-dark); }
+
+.dox-btn:focus-visible,
+a.dox-switch:focus-visible {
+	outline: 2px solid var(--dox-orange-dark);
+	outline-offset: 2px;
+}
+
+.dox-card-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	margin-bottom: 18px;
+	gap: 16px;
+}
+.dox-card-head h2 { margin: 0 0 4px; font-size: 18px; }
+.dox-card-head p  { margin: 0; color: var(--dox-muted); font-size: 13px; }
+
+.dox-list-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.dox-import-form { display: inline-flex; margin: 0; }
+.dox-file-label { position: relative; overflow: hidden; }
+.dox-file-label input[type=file] {
+	position: absolute;
+	opacity: 0;
+	width: 1px;
+	height: 1px;
+}
+.dox-file-label:focus-within {
+	outline: 2px solid var(--dox-orange-dark);
+	outline-offset: 2px;
+}
+
+.dox-table-wrap { overflow-x: auto; }
+.dox-table {
+	width: 100%;
+	min-width: 640px;
+	border-collapse: collapse;
+}
+.dox-table th, .dox-table td {
+	text-align: left;
+	padding: 14px 12px;
+	border-bottom: 1px solid var(--dox-border);
+	font-size: 14px;
+	vertical-align: middle;
+}
+.dox-table th {
+	font-size: 11px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: var(--dox-muted);
+	font-weight: 600;
+}
+.dox-table tr:last-child td { border-bottom: 0; }
+.dox-table a { color: var(--dox-text); text-decoration: none; }
+.dox-table a:hover { color: var(--dox-orange-dark); }
+
+.dox-tag {
+	display: inline-block;
+	padding: 3px 10px;
+	background: #f1f3f5;
+	border-radius: 999px;
+	font-size: 12px;
+	color: #50575e;
+	white-space: nowrap;
+}
+
+.dox-row-actions { text-align: right; white-space: nowrap; }
+.dox-row-actions a { margin-left: 14px; font-size: 13px; }
+.dox-row-actions .dox-danger { color: #d63638; }
+.dox-row-actions .dox-danger:hover { color: #b32d2e; }
+
+.dox-muted { color: var(--dox-muted); font-size: 12px; margin-top: 2px; }
+
+.dox-error-line {
+	color: var(--dox-danger);
+	font-size: 12px;
+	margin-top: 4px;
+}
+
+.dox-empty {
+	padding: 60px 20px;
+	text-align: center;
+	color: var(--dox-muted);
+}
+.dox-empty p { margin: 0 0 18px; }
+
+/* Switch */
+.dox-switch {
+	display: inline-block;
+	width: 42px; height: 24px;
+	background: #d6d6d6;
+	border-radius: 999px;
+	position: relative;
+	transition: .15s;
+	vertical-align: middle;
+}
+.dox-switch.is-on { background: var(--dox-orange); }
+.dox-switch-knob {
+	position: absolute;
+	top: 3px; left: 3px;
+	width: 18px; height: 18px;
+	background: #fff;
+	border-radius: 50%;
+	transition: .15s;
+	box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.dox-switch.is-on .dox-switch-knob { left: 21px; }
+a.dox-switch { text-decoration: none; }
+
+.dox-switch-inline {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+/* Visually hidden but still focusable/announceable (display:none removed the
+   checkbox from keyboard and screen-reader reach). */
+.dox-switch-inline input {
+	position: absolute;
+	opacity: 0;
+	width: 1px;
+	height: 1px;
+}
+.dox-switch-inline input:focus-visible + .dox-switch {
+	outline: 2px solid var(--dox-orange-dark);
+	outline-offset: 2px;
+}
+
+/* Editor */
+.dox-editor .dox-grid {
+	display: grid;
+	grid-template-columns: 2fr 1fr 1fr;
+	gap: 16px;
+	margin-bottom: 16px;
+}
+.dox-field { margin-bottom: 16px; }
+.dox-field label {
+	display: block;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 1px;
+	color: var(--dox-muted);
+	margin-bottom: 6px;
+	text-transform: uppercase;
+}
+.dox-field input[type=text],
+.dox-field input[type=number],
+.dox-field select,
+.dox-field textarea {
+	width: 100%;
+	padding: 10px 12px;
+	border: 1px solid var(--dox-border);
+	border-radius: 10px;
+	background: #fafafa;
+	font-size: 14px;
+	font-family: inherit;
+	box-shadow: none;
+}
+.dox-field input:focus,
+.dox-field select:focus,
+.dox-field textarea:focus {
+	outline: none;
+	border-color: var(--dox-orange);
+	background: #fff;
+}
+.dox-field textarea {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 13px;
+	line-height: 1.5;
+	min-height: 380px;
+}
+.CodeMirror {
+	border: 1px solid var(--dox-border) !important;
+	border-radius: 10px !important;
+	height: 420px !important;
+}
+
+.dox-actions {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 10px;
+	margin-top: 8px;
+}
+
+.dox-validate-result {
+	margin-right: auto;
+	font-size: 13px;
+	color: var(--dox-muted);
+}
+.dox-validate-result.is-ok  { color: #1e7d3a; }
+.dox-validate-result.is-err { color: var(--dox-danger); }
+
+.dox-back {
+	display: inline-block;
+	font-size: 13px;
+	color: var(--dox-muted);
+	text-decoration: none;
+	margin-bottom: 6px;
+}
+.dox-back:hover { color: var(--dox-orange-dark); }
+.dox-notice-success {
+	background: #e8f7ee;
+	border-color: #b8e6c8;
+	color: #1e7d3a;
+}
+.dox-notice-error {
+	background: #fdecea;
+	border-color: #f5c2bd;
+	color: var(--dox-danger);
+}
+.dox-notice {
+	background: #fff4e5;
+	border: 1px solid #ffd9a8;
+	color: #8a4b00;
+	padding: 12px 16px;
+	border-radius: 10px;
+	margin-bottom: 18px;
+	font-size: 13px;
+}
+
+/* Small screens (WP admin's own breakpoint is 782px). */
+@media (max-width: 782px) {
+	.dox-wrap { margin: 10px 10px 30px 0; }
+	.dox-card { padding: 16px; }
+	.dox-header,
+	.dox-card-head {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+	.dox-header-actions { flex-wrap: wrap; }
+	.dox-editor .dox-grid { grid-template-columns: 1fr; }
+	.dox-actions { flex-wrap: wrap; }
+	.dox-validate-result { flex-basis: 100%; margin-right: 0; }
+}
