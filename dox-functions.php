@@ -22,7 +22,7 @@ define( 'DOX_FUNCTIONS_URL', plugin_dir_url( __FILE__ ) );
 // Menú común de los plugins de Dox Studio. Cada plugin Dox lleva su copia y se
 // carga solo la más nueva de las instaladas.
 require_once DOX_FUNCTIONS_DIR . 'dox-core/loader.php';
-Dox_Core_Loader::register( '1.0.0', DOX_FUNCTIONS_DIR . 'dox-core/dox-core.php' );
+Dox_Core_Loader::register( require DOX_FUNCTIONS_DIR . 'dox-core/version.php', DOX_FUNCTIONS_DIR . 'dox-core/dox-core.php' );
 
 require_once DOX_FUNCTIONS_DIR . 'includes/class-dox-functions-i18n.php';
 require_once DOX_FUNCTIONS_DIR . 'includes/class-dox-functions.php';

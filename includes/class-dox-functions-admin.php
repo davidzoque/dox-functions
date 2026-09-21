@@ -52,6 +52,7 @@ class Dox_Functions_Admin {
 	public function __construct() {
 		add_action( 'admin_menu',            array( $this, 'menu' ) );
 		add_action( 'dox_core_register',     array( $this, 'register_in_dox_menu' ) );
+		add_action( 'admin_page_access_denied', array( $this, 'redirect_old_url' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'assets' ) );
 		add_action( 'admin_head',            array( $this, 'admin_favicon' ) );
 		add_action( 'admin_notices',         array( $this, 'global_notices' ) );
@@ -160,7 +161,7 @@ class Dox_Functions_Admin {
 		if ( ! self::user_can_manage() ) return;
 
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( $screen && 'tools_page_' . self::SLUG === $screen->id ) return;
+		if ( $screen && self::is_our_screen( $screen->id ) ) return;
 
 		if ( get_option( Dox_Functions::OPT_SAFEMODE ) ) {
 			$off_url = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_safemode_off' ), self::NONCE );
@@ -184,8 +185,39 @@ class Dox_Functions_Admin {
 		}
 	}
 
+	/**
+	 * La pantalla vive en admin.php cuando cuelga del menú Dox Plugins y en
+	 * tools.php solo cuando actúa el respaldo de menu(). La condición tiene que
+	 * ser la misma que allí: WordPress responde "Sorry, you are not allowed to
+	 * access this page" a una URL de tools.php si la página está registrada
+	 * bajo otro padre, y de aquí salen todos los enlaces y las redirecciones.
+	 */
 	public static function page_url( $args = array() ) {
-		return add_query_arg( array_merge( array( 'page' => self::SLUG ), $args ), admin_url( 'tools.php' ) );
+		$base = function_exists( 'dox_core' ) ? 'admin.php' : 'tools.php';
+		return add_query_arg( array_merge( array( 'page' => self::SLUG ), $args ), admin_url( $base ) );
+	}
+
+	/**
+	 * Hasta la 1.1.0 la pantalla era tools.php?page=dox-functions. Quien la tenga
+	 * en marcadores llega aquí en vez de a un "no tienes permiso": WordPress
+	 * avisa con este hook justo antes de cortar, todavía sin haber pintado nada.
+	 */
+	public function redirect_old_url() {
+		global $pagenow;
+
+		if ( 'tools.php' !== $pagenow || ! function_exists( 'dox_core' ) ) return;
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- solo se lee para redirigir a la misma pantalla.
+		if ( ! isset( $_GET['page'] ) || self::SLUG !== sanitize_key( wp_unslash( $_GET['page'] ) ) ) return;
+		if ( ! self::user_can_manage() ) return;
+
+		$args = array();
+		foreach ( array( 'action', 'id' ) as $key ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			if ( isset( $_GET[ $key ] ) ) $args[ $key ] = sanitize_key( wp_unslash( $_GET[ $key ] ) );
+		}
+
+		wp_safe_redirect( self::page_url( $args ) );
+		exit;
 	}
 
 	public function render_page() {
