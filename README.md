@@ -24,11 +24,11 @@ Como los snippets se ejecutan con `eval()`, en una red **multisitio** solo los *
 
 1. Descarga el ZIP de la [última release](https://github.com/davidzoque/dox-functions/releases/latest) (`dox-functions.zip`).
 2. En WordPress: **Plugins → Añadir nuevo → Subir plugin**, elige el ZIP y actívalo.
-3. Ve a **Herramientas → Dox Functions**.
+3. Ve a **Dox Plugins → Dox Functions**.
 
 ## Modo seguro
 
-Si un snippet rompe el sitio, visita `/wp-admin/?dox_safe_mode=1` (o añade `?dox_safe_mode=1` a cualquier URL del admin) para **detener** la ejecución de todos los snippets. Para **reactivar** la ejecución, entra en **Herramientas → Dox Functions** y pulsa "Desactivar Modo Seguro" (protegido con nonce; no se hace por URL).
+Si un snippet rompe el sitio, visita `/wp-admin/?dox_safe_mode=1` (o añade `?dox_safe_mode=1` a cualquier URL del admin) para **detener** la ejecución de todos los snippets. Para **reactivar** la ejecución, entra en **Dox Plugins → Dox Functions** y pulsa "Desactivar Modo Seguro" (protegido con nonce; no se hace por URL).
 
 ## Actualizaciones automáticas
 

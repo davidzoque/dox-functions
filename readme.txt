@@ -4,7 +4,7 @@ Tags: code snippets, php, functions, doxstudio
 Requires at least: 5.5
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.2.1
+Stable tag: 1.2.2
 License: GPLv2 or later
 
 Administra snippets de PHP personalizados con un panel visual con la marca Dox Studio.
@@ -22,13 +22,13 @@ Dox Functions reemplaza el archivo `functions.php` con un administrador de snipp
 == Instalación ==
 1. Sube la carpeta `dox-functions` a `/wp-content/plugins/`.
 2. Actívalo desde el menú Plugins.
-3. Ve a **Herramientas → Dox Functions**.
+3. Ve a **Dox Plugins → Dox Functions**.
 
 == Modo seguro ==
 Si un snippet rompe el sitio:
 * Visita `/wp-admin/?dox_safe_mode=1` (o añade `?dox_safe_mode=1` a cualquier URL del admin) para **detener** la ejecución de todos los snippets.
 * Mientras el modo seguro esté activo verás un aviso en todo el panel de administración.
-* Para **reactivar** la ejecución, entra en **Herramientas → Dox Functions** y pulsa "Desactivar Modo Seguro" (la reactivación está protegida con nonce y no se hace por URL).
+* Para **reactivar** la ejecución, entra en **Dox Plugins → Dox Functions** y pulsa "Desactivar Modo Seguro" (la reactivación está protegida con nonce y no se hace por URL).
 
 == Errores y auto-desactivación ==
 Cuando un snippet lanza un error al cargarse, el plugin lo desactiva automáticamente, registra el mensaje y te lo muestra en la lista de funciones y en el editor.
@@ -47,6 +47,9 @@ Al desinstalar el plugin, tus funciones **se conservan** en la base de datos (so
 `define( 'DOX_FUNCTIONS_REMOVE_DATA', true );`
 
 == Changelog ==
+
+= 1.2.2 =
+* Documentación: el readme seguía mandando a Herramientas → Dox Functions, y desde la 1.2.0 la pantalla está en **Dox Plugins → Dox Functions**. El plugin no cambia.
 
 = 1.2.1 =
 * Arreglado: una subida cortada (la carpeta `dox-core` a medias o un `loader.php` vacío) tumbaba el sitio entero con un error fatal. Ahora el plugin comprueba que el código compartido llegó completo antes de cargarlo; si no, la pantalla sigue siendo accesible: en el menú **Dox Plugins** si otro plugin Dox trae ese código y, si no, en Herramientas > Dox Functions.
