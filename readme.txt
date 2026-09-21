@@ -4,7 +4,7 @@ Tags: code snippets, php, functions, doxstudio
 Requires at least: 5.5
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GPLv2 or later
 
 Administra snippets de PHP personalizados con un panel visual con la marca Dox Studio.
@@ -47,6 +47,10 @@ Al desinstalar el plugin, tus funciones **se conservan** en la base de datos (so
 `define( 'DOX_FUNCTIONS_REMOVE_DATA', true );`
 
 == Changelog ==
+
+= 1.2.1 =
+* Arreglado: una subida cortada (la carpeta `dox-core` a medias o un `loader.php` vacío) tumbaba el sitio entero con un error fatal. Ahora el plugin comprueba que el código compartido llegó completo antes de cargarlo; si no, la pantalla sigue siendo accesible: en el menú **Dox Plugins** si otro plugin Dox trae ese código y, si no, en Herramientas > Dox Functions.
+* Mejorado: el menú **Dox Plugins** y su portada ordenan los plugins alfabéticamente, en vez de en el orden en que cargaba cada uno, y el botón de cada tarjeta dice "Abrir".
 
 = 1.2.0 =
 * Nuevo: la pantalla del plugin pasa al menú común **Dox Plugins**, junto al resto de plugins de Dox Studio, en vez de colgar de Herramientas. Cada plugin Dox lleva su copia del código compartido, así que ninguno depende de otro y solo se ejecuta la copia más nueva de las instaladas.
