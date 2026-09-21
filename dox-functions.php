@@ -21,8 +21,16 @@ define( 'DOX_FUNCTIONS_URL', plugin_dir_url( __FILE__ ) );
 
 // Menú común de los plugins de Dox Studio. Cada plugin Dox lleva su copia y se
 // carga solo la más nueva de las instaladas.
-require_once DOX_FUNCTIONS_DIR . 'dox-core/loader.php';
-Dox_Core_Loader::register( require DOX_FUNCTIONS_DIR . 'dox-core/version.php', DOX_FUNCTIONS_DIR . 'dox-core/dox-core.php' );
+// Con file_exists: si la carpeta llegara a medias (una subida cortada), el plugin
+// sigue en pie en vez de tumbar el sitio con un error fatal. Se apunta igual en
+// Dox Plugins si otro plugin Dox trae el core y, si no, vuelve a Herramientas (el
+// respaldo de Dox_Functions_Admin::menu()).
+if ( file_exists( DOX_FUNCTIONS_DIR . 'dox-core/loader.php' ) && file_exists( DOX_FUNCTIONS_DIR . 'dox-core/version.php' ) ) {
+	require_once DOX_FUNCTIONS_DIR . 'dox-core/loader.php';
+	if ( class_exists( 'Dox_Core_Loader' ) ) { // Un loader.php vacío (la subida se cortó ahí) existe pero no define nada.
+		Dox_Core_Loader::register( require DOX_FUNCTIONS_DIR . 'dox-core/version.php', DOX_FUNCTIONS_DIR . 'dox-core/dox-core.php' );
+	}
+}
 
 require_once DOX_FUNCTIONS_DIR . 'includes/class-dox-functions-i18n.php';
 require_once DOX_FUNCTIONS_DIR . 'includes/class-dox-functions.php';
