@@ -27,7 +27,9 @@ $logo      = $this->logo_svg();
 
 	<div class="dox-core-grid">
 		<?php foreach ( $installed as $slug => $plugin ) :
-			$link = ! empty( $plugin['page'] ) ? admin_url( 'admin.php?page=' . $plugin['page']['menu_slug'] ) : '';
+			$link = ! empty( $plugin['page'] )
+				? admin_url( 'admin.php?page=' . $plugin['page']['menu_slug'] )
+				: ( $plugin['settings_url'] ? admin_url( $plugin['settings_url'] ) : '' );
 			?>
 			<div class="dox-core-card">
 				<div class="dox-core-card-head">

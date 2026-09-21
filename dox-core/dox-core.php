@@ -83,20 +83,27 @@ class Dox_Core {
 	/**
 	 * Apunta un plugin en el menú común.
 	 *
-	 * @param array $args slug, name, version, summary, url y (opcional) page:
-	 *                    menu_title, page_title, capability, menu_slug, callback.
+	 * Un plugin de una sola pantalla pasa 'page' y el core le crea el submenú.
+	 * Uno que ya tiene su propio menú (Dox Feedback) o que vive en otro sitio
+	 * (Dox POS, bajo WooCommerce) pasa 'settings_url' y solo sale en la portada,
+	 * que es como Crocoblock lista sus plugins grandes sin moverlos de su menú.
+	 *
+	 * @param array $args slug, name, version, summary, url, settings_url y
+	 *                    (opcional) page: menu_title, page_title, capability,
+	 *                    menu_slug, callback.
 	 */
 	public function register_plugin( array $args ) {
 
 		if ( empty( $args['slug'] ) || empty( $args['name'] ) ) return;
 
 		$args = wp_parse_args( $args, [
-			'slug'    => '',
-			'name'    => '',
-			'version' => '',
-			'summary' => '',
-			'url'     => 'https://doxstudio.com/plugins/',
-			'page'    => [],
+			'slug'         => '',
+			'name'         => '',
+			'version'      => '',
+			'summary'      => '',
+			'url'          => 'https://doxstudio.com/plugins/',
+			'settings_url' => '',
+			'page'         => [],
 		] );
 
 		if ( ! empty( $args['page'] ) ) {
@@ -130,6 +137,14 @@ class Dox_Core {
 		do_action( 'dox_core_register', $this );
 
 		if ( ! $this->plugins ) return; // nada que enseñar
+
+		// Con un solo plugin que además vive en su propio menú, este menú sería
+		// una entrada de más para enseñar un enlace: no se crea.
+		$con_pagina = 0;
+		foreach ( $this->plugins as $plugin ) {
+			if ( ! empty( $plugin['page'] ) ) $con_pagina++;
+		}
+		if ( ! $con_pagina && count( $this->plugins ) < 2 ) return;
 
 		add_menu_page(
 			__( 'Dox Plugins', 'dox-core' ),
