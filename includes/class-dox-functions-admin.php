@@ -51,6 +51,7 @@ class Dox_Functions_Admin {
 
 	public function __construct() {
 		add_action( 'admin_menu',            array( $this, 'menu' ) );
+		add_action( 'dox_core_register',     array( $this, 'register_in_dox_menu' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'assets' ) );
 		add_action( 'admin_head',            array( $this, 'admin_favicon' ) );
 		add_action( 'admin_notices',         array( $this, 'global_notices' ) );
@@ -65,14 +66,44 @@ class Dox_Functions_Admin {
 		add_action( 'wp_ajax_dox_functions_toggle',          array( $this, 'ajax_toggle' ) );
 	}
 
-	public function menu() {
-		// Don't even register the Tools page for users who aren't allowed to
-		// run PHP here (subsite admins on multisite, or sites that locked down
-		// code editing). Without the page registered, tools.php?page=dox-functions
-		// is inaccessible; handlers below re-check as defence in depth.
+	/**
+	 * Apunta el plugin en el menú común "Dox Plugins", que crea dox-core. La
+	 * página la registra el core, para que todos los plugins Dox cuelguen igual.
+	 */
+	public function register_in_dox_menu( $core ) {
 		if ( ! self::user_can_manage() ) {
 			return;
 		}
+		$core->register_plugin( array(
+			'slug'    => 'dox-functions',
+			'name'    => dox_t( 'plugin_name' ),
+			'version' => DOX_FUNCTIONS_VERSION,
+			'summary' => dox_t( 'plugin_summary' ),
+			'page'    => array(
+				'page_title' => dox_t( 'plugin_name' ),
+				'menu_title' => dox_t( 'plugin_name' ),
+				'capability' => self::CAP,
+				'menu_slug'  => self::SLUG,
+				'callback'   => array( $this, 'render_page' ),
+			),
+		) );
+	}
+
+	public function menu() {
+		// Don't even register the page for users who aren't allowed to run PHP
+		// here (subsite admins on multisite, or sites that locked down code
+		// editing). Without the page registered, the screen is inaccessible;
+		// handlers below re-check as defence in depth.
+		if ( ! self::user_can_manage() ) {
+			return;
+		}
+
+		// Con dox-core la pantalla vive en el menú Dox Plugins; esto es el
+		// respaldo por si el core no llegara a cargarse.
+		if ( function_exists( 'dox_core' ) ) {
+			return;
+		}
+
 		add_management_page(
 			dox_t( 'plugin_name' ),
 			dox_t( 'plugin_name' ),
@@ -82,8 +113,21 @@ class Dox_Functions_Admin {
 		);
 	}
 
+	/**
+	 * ¿Estamos en la pantalla del plugin? Dentro del menú Dox Plugins el hook es
+	 * dox-plugins_page_dox-functions; tools_page_... solo cuando actúa el
+	 * respaldo de menu().
+	 */
+	private static function is_our_screen( $hook ) {
+		$screens = array( 'tools_page_' . self::SLUG );
+		if ( function_exists( 'dox_core' ) ) {
+			$screens[] = dox_core()->page_hook( 'dox-functions' );
+		}
+		return in_array( $hook, array_filter( $screens ), true );
+	}
+
 	public function assets( $hook ) {
-		if ( 'tools_page_' . self::SLUG !== $hook ) return;
+		if ( ! self::is_our_screen( $hook ) ) return;
 		if ( ! self::user_can_manage() ) return;
 
 		wp_enqueue_style( 'dox-functions-admin', DOX_FUNCTIONS_URL . 'assets/admin.css', array(), DOX_FUNCTIONS_VERSION );
@@ -102,7 +146,7 @@ class Dox_Functions_Admin {
 
 	public function admin_favicon() {
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( ! $screen || 'tools_page_' . self::SLUG !== $screen->id ) return;
+		if ( ! $screen || ! self::is_our_screen( $screen->id ) ) return;
 		echo '<link rel="icon" type="image/svg+xml" href="' . esc_url( DOX_FUNCTIONS_URL . 'assets/icon.svg' ) . '">';
 	}
 

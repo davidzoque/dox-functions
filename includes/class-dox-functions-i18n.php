@@ -24,6 +24,7 @@ class Dox_Functions_I18n {
 	private static function en() {
 		return array(
 			'plugin_name'          => 'Dox Functions',
+			'plugin_summary'       => 'Code snippets with no risk of breaking the site editing functions.php.',
 			'pill'                 => 'FUNCTIONS',
 			'new_function'         => '+ New function',
 			'safe_mode_off'        => 'Disable Safe Mode',
@@ -83,6 +84,7 @@ class Dox_Functions_I18n {
 	private static function es() {
 		return array(
 			'plugin_name'          => 'Dox Functions',
+			'plugin_summary'       => 'Fragmentos de código sin el riesgo de romper el sitio editando functions.php.',
 			'pill'                 => 'FUNCTIONS',
 			'new_function'         => '+ Nueva función',
 			'safe_mode_off'        => 'Desactivar Modo Seguro',
