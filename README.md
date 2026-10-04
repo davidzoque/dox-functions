@@ -28,7 +28,7 @@ Como los snippets se ejecutan con `eval()`, en una red **multisitio** solo los *
 
 ## Modo seguro
 
-Si un snippet rompe el sitio, visita `/wp-admin/?dox_safe_mode=1` (o añade `?dox_safe_mode=1` a cualquier URL del admin) para **detener** la ejecución de todos los snippets. Para **reactivar** la ejecución, entra en **Dox Plugins → Dox Functions** y pulsa "Desactivar Modo Seguro" (protegido con nonce; no se hace por URL).
+Si un snippet rompe el sitio, visita `/wp-admin/?dox_safe_mode=1` (o añade `?dox_safe_mode=1` a cualquier URL del admin) para **detener** la ejecución de todos los snippets: esa página ya carga sin ellos y pide pulsar "Activar Modo Seguro" para dejarlo guardado (con nonce, para que un enlace puesto en otra web no pueda apagarle los snippets a un administrador). Para **reactivar** la ejecución, entra en **Dox Plugins → Dox Functions** y pulsa "Desactivar Modo Seguro" (protegido con nonce; no se hace por URL).
 
 ## Actualizaciones automáticas
 

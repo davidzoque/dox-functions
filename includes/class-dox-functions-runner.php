@@ -9,20 +9,30 @@ class Dox_Functions_Runner {
 
 	public function run_snippets() {
 
-		// Safe mode RECOVERY switch: ?dox_safe_mode=1 (admin only) stops snippet
-		// execution for this request. This is left usable by typing the URL by hand
-		// on purpose, so an administrator can recover a site that a snippet broke.
-		// The effect is benign (it only DISABLES execution), so no nonce is used
-		// here (and wp_verify_nonce() is not yet available this early on
-		// plugins_loaded). On multisite we still require a Super Admin, matching
-		// who is allowed to manage snippets at all — a subsite admin has no
-		// business touching this plugin's state.
+		// Safe mode RECOVERY switch: ?dox_safe_mode=1 (admin only). It stays usable
+		// by typing the URL by hand, so an administrator can recover a site that a
+		// snippet broke: that request skips every snippet and shows a confirmation
+		// button. Only the button (same URL plus a nonce) saves safe mode, so a
+		// link or image planted elsewhere can't switch an admin's snippets off by
+		// CSRF. pluggable.php is already loaded on plugins_loaded, so nonces work
+		// here. On multisite we still require a Super Admin, matching who is
+		// allowed to manage snippets at all.
 		//
-		// Re-enabling execution (turning safe mode OFF) is the sensitive operation
-		// and is handled by Dox_Functions_Admin::handle_safemode_off() behind a
-		// nonce + capability check — never via a bare GET request here.
+		// Re-enabling execution (turning safe mode OFF) is handled by
+		// Dox_Functions_Admin::handle_safemode_off() behind a nonce + capability
+		// check — never via a GET request here.
 		$can_toggle_safe_mode = is_multisite() ? is_super_admin() : current_user_can( 'manage_options' );
 		if ( isset( $_GET['dox_safe_mode'] ) && $can_toggle_safe_mode ) {
+			$nonce = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
+			if ( ! wp_verify_nonce( $nonce, 'dox_safe_mode' ) ) {
+				$confirm = wp_nonce_url( add_query_arg( 'dox_safe_mode', '1' ), 'dox_safe_mode' );
+				wp_die(
+					'<p>' . esc_html( dox_t( 'safe_mode_confirm' ) ) . '</p>'
+					. '<p><a class="button button-primary" href="' . esc_url( $confirm ) . '">' . esc_html( dox_t( 'safe_mode_on' ) ) . '</a></p>',
+					esc_html( dox_t( 'safe_mode_title' ) ),
+					array( 'response' => 200 )
+				);
+			}
 			update_option( Dox_Functions::OPT_SAFEMODE, 1 );
 		}
 		if ( get_option( Dox_Functions::OPT_SAFEMODE ) ) {

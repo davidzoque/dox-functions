@@ -26,7 +26,7 @@ Dox Functions reemplaza el archivo `functions.php` con un administrador de snipp
 
 == Modo seguro ==
 Si un snippet rompe el sitio:
-* Visita `/wp-admin/?dox_safe_mode=1` (o añade `?dox_safe_mode=1` a cualquier URL del admin) para **detener** la ejecución de todos los snippets.
+* Visita `/wp-admin/?dox_safe_mode=1` (o añade `?dox_safe_mode=1` a cualquier URL del admin) para **detener** la ejecución de todos los snippets. La página carga sin ellos y pide confirmar con el botón "Activar Modo Seguro".
 * Mientras el modo seguro esté activo verás un aviso en todo el panel de administración.
 * Para **reactivar** la ejecución, entra en **Dox Plugins → Dox Functions** y pulsa "Desactivar Modo Seguro" (la reactivación está protegida con nonce y no se hace por URL).
 
