@@ -4,7 +4,7 @@ Tags: code snippets, php, functions, doxstudio
 Requires at least: 5.5
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.2.2
+Stable tag: 1.2.3
 License: GPLv2 or later
 
 Administra snippets de PHP personalizados con un panel visual con la marca Dox Studio.
@@ -47,6 +47,9 @@ Al desinstalar el plugin, tus funciones **se conservan** en la base de datos (so
 `define( 'DOX_FUNCTIONS_REMOVE_DATA', true );`
 
 == Changelog ==
+
+= 1.2.3 =
+* Seguridad: `?dox_safe_mode=1` ya no guarda el modo seguro por sí solo. La página carga sin snippets y pide confirmar con el botón "Activar Modo Seguro", así un enlace puesto en otra web no puede apagarle los snippets a un administrador.
 
 = 1.2.2 =
 * Documentación: el readme seguía mandando a Herramientas → Dox Functions, y desde la 1.2.0 la pantalla está en **Dox Plugins → Dox Functions**. El plugin no cambia.
