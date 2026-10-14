@@ -1,11 +1,12 @@
 # Dox Functions
 
-Administra snippets de PHP personalizados desde un panel visual con la marca Dox Studio, **sin tocar `functions.php`**. Activa o desactiva funciones con un clic.
+Administra funciones de PHP y scripts del sitio (el píxel de Meta, Google Analytics, una verificación de dominio) desde un panel visual con la marca Dox Studio, **sin tocar `functions.php` ni el tema**. Activa o desactiva cada uno con un clic.
 
 ## Características
 
+- **Dos tipos**: PHP (se ejecuta con `eval()`) y **HTML, JS o CSS**, que se pega tal cual y se imprime en la **cabecera**, al **inicio del body** o en el **pie** de la web pública (nunca en el escritorio ni en `wp-login.php`)
 - **Activa/desactiva** snippets con un clic (sin recargar la página)
-- **Ámbitos**: todo el sitio, solo admin, solo frontend, o **"ejecutar una vez"** (corre en la siguiente carga y se desactiva solo — ideal para migraciones y arreglos puntuales)
+- **Ámbitos**: todo el sitio, solo admin, solo frontend, o **"ejecutar una vez"** (corre en la siguiente carga y se desactiva solo; ideal para migraciones y arreglos puntuales)
 - **Editor** con resaltado de sintaxis PHP, guardado con `Ctrl/Cmd+S` y botón para validar la sintaxis sin guardar
 - **Auto-desactivación segura**: si un snippet falla al cargar, se desactiva solo (evita la pantalla blanca) y el error queda visible en la lista, el editor y un aviso del admin
 - **Exportar/importar** funciones en JSON para reutilizarlas entre sitios (las importadas llegan siempre desactivadas)
@@ -13,7 +14,7 @@ Administra snippets de PHP personalizados desde un panel visual con la marca Dox
 
 ## Seguridad
 
-Como los snippets se ejecutan con `eval()`, en una red **multisitio** solo los **Super Admins** de red pueden crear, editar, activar o ejecutar snippets — igual que WordPress reserva la edición de código a los Super Admins. Además, si el sitio define `DISALLOW_FILE_MODS` o `DISALLOW_FILE_EDIT`, la gestión de snippets queda deshabilitada.
+Como los snippets se ejecutan con `eval()`, en una red **multisitio** solo los **Super Admins** de red pueden crear, editar, activar o ejecutar snippets, igual que WordPress reserva la edición de código a los Super Admins. Además, si el sitio define `DISALLOW_FILE_MODS` o `DISALLOW_FILE_EDIT`, la gestión de snippets queda deshabilitada.
 
 ## Requisitos
 
@@ -28,10 +29,20 @@ Como los snippets se ejecutan con `eval()`, en una red **multisitio** solo los *
 
 ## Ámbitos
 
+Para los snippets **PHP**:
+
 - **Todo el sitio**: en cualquier petición, incluida la pantalla de acceso.
 - **Solo admin**: solo en el escritorio con sesión iniciada (no en admin-ajax, admin-post ni cron).
 - **Solo frontend**: todo lo que no es el escritorio. Eso incluye la API REST, XML-RPC, el cron de WordPress y `wp-login.php`.
 - **Ejecutar una vez**: en la siguiente petición, y se desactiva solo.
+
+Para los snippets **HTML, JS o CSS** (ubicación):
+
+- **Cabecera**: dentro de `<head>` (`wp_head`). Píxeles, Analytics, verificaciones y estilos.
+- **Inicio del body**: justo al abrir `<body>` (`wp_body_open`). El `<noscript>` de Google Tag Manager. Necesita un tema que llame a `wp_body_open()`.
+- **Pie de página**: antes de cerrar `</body>` (`wp_footer`).
+
+La prioridad ordena los snippets que comparten ubicación (el menor sale antes). El modo seguro y `DISALLOW_FILE_MODS` / `DISALLOW_FILE_EDIT` paran también los HTML.
 
 ## Modo seguro
 

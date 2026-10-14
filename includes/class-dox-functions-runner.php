@@ -79,6 +79,14 @@ class Dox_Functions_Runner {
 		$snippets     = Dox_Functions::get_snippets( true );
 
 		foreach ( $snippets as $s ) {
+			// HTML no pasa por eval(): se cuelga del hook de su ubicación y se
+			// imprime tal cual. Esos hooks solo corren en la web pública (el
+			// escritorio y wp-login.php no llaman a wp_head ni a wp_footer).
+			if ( 'html' === ( $s->type ?? 'php' ) ) {
+				$this->print_html( $s );
+				continue;
+			}
+
 			if ( 'once' === $s->scope ) {
 				// Run-once snippets execute on the first request after being
 				// activated, then stay deactivated. The claim is an atomic
@@ -95,6 +103,25 @@ class Dox_Functions_Runner {
 
 			$this->execute( $s );
 		}
+	}
+
+	private function print_html( $snippet ) {
+		$location = Dox_Functions::sanitize_location( $snippet->location ?? '' );
+		$code     = (string) $snippet->code;
+		if ( '' === trim( $code ) ) {
+			return;
+		}
+
+		add_action(
+			Dox_Functions::LOCATIONS[ $location ],
+			static function () use ( $code ) {
+				// Código de quien administra el sitio (el mismo permiso que
+				// escribir PHP aquí): se imprime sin filtrar a propósito, igual
+				// que el campo de cabecera de cualquier tema o de WPCode.
+				echo "\n" . $code . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			},
+			(int) $snippet->priority
+		);
 	}
 
 	private function execute( $snippet ) {

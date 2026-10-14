@@ -140,6 +140,7 @@ class Dox_Functions_Admin {
 		if ( ! self::is_our_screen( $hook ) ) return;
 		if ( ! self::user_can_manage() ) return;
 
+		wp_enqueue_style( 'dox-functions-inter', 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap', array(), null ); // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion
 		wp_enqueue_style( 'dox-functions-admin', DOX_FUNCTIONS_URL . 'assets/admin.css', array(), DOX_FUNCTIONS_VERSION );
 		// wp_enqueue_code_editor() pulls in CodeMirror (script + styles) itself.
 		wp_enqueue_code_editor( array( 'type' => 'application/x-httpd-php' ) );
@@ -147,6 +148,7 @@ class Dox_Functions_Admin {
 		wp_localize_script( 'dox-functions-admin', 'DoxFunctions', array(
 			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 			'nonce'   => wp_create_nonce( self::nonce_action( 'validate' ) ),
+			'starter' => dox_t( 'starter_code' ),
 			'i18n'    => array(
 				'validating'    => dox_t( 'validating' ),
 				'request_error' => dox_t( 'request_error' ),
@@ -245,146 +247,350 @@ class Dox_Functions_Admin {
 		$action = isset( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : 'list';
 		$id     = isset( $_GET['id'] ) ? (int) $_GET['id'] : 0;
 
-		echo '<div class="dox-wrap">';
-		$this->render_header();
+		echo '<div class="wrap dxf-app">';
 
 		// Editing a snippet that no longer exists (deleted meanwhile) must not
 		// render a ghost editor that pretends to save — say so and show the list.
-		if ( 'edit' === $action && $id && ! Dox_Functions::get_snippet( $id ) ) {
-			echo '<div class="dox-notice dox-notice-error">' . esc_html( dox_t( 'not_found' ) ) . '</div>';
+		$missing = 'edit' === $action && $id && ! Dox_Functions::get_snippet( $id );
+		if ( $missing ) {
 			$action = 'list';
 			$id     = 0;
 		}
 
 		if ( 'edit' === $action || 'new' === $action ) {
+			// El editor lleva su propia barra con el título; el modo seguro se
+			// avisa igual arriba, porque cambia lo que hace "Guardar".
+			$this->render_safe_mode_strip();
 			$this->render_editor( $id );
 		} else {
+			$this->render_header();
+			if ( $missing ) {
+				echo '<div class="dxf-strip dxf-strip--bad" role="alert"><span class="dxf-strip__icon">' . self::icon( 'alert' ) . '</span><p>' . esc_html( dox_t( 'not_found' ) ) . '</p></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			}
 			$this->render_list();
 		}
 
 		echo '</div>';
 	}
 
-	private function render_header() {
+	/**
+	 * Iconos de trazo (24 × 24) en línea: sin peticiones ni fuentes de iconos,
+	 * y heredan el color del texto.
+	 */
+	private static function icon( $name ) {
+		$paths = array(
+			'plus'     => '<path d="M12 5v14M5 12h14"/>',
+			'php'      => '<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>',
+			'html'     => '<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>',
+			'globe'    => '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+			'lock'     => '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+			'monitor'  => '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+			'zap'      => '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
+			'head'     => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>',
+			'body'     => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M7 13h10"/>',
+			'footer'   => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15h18"/>',
+			'edit'     => '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+			'copy'     => '<rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+			'trash'    => '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+			'download' => '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+			'upload'   => '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
+			'search'   => '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+			'alert'    => '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+			'shield'   => '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+			'back'     => '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+			'check'    => '<path d="M20 6 9 17l-5-5"/>',
+		);
+		if ( ! isset( $paths[ $name ] ) ) return '';
+		return '<svg class="dxf-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $paths[ $name ] . '</svg>';
+	}
+
+	/**
+	 * Dónde corre cada snippet: ámbito (PHP) o ubicación (HTML), con su
+	 * icono. El color de cada uno sale del CSS por data-where, siempre el mismo.
+	 */
+	private static function where_options( $type ) {
+		if ( 'html' === $type ) {
+			return array(
+				'head'      => 'head',
+				'body_open' => 'body',
+				'footer'    => 'footer',
+			);
+		}
+		return array(
+			'everywhere' => 'globe',
+			'admin'      => 'lock',
+			'frontend'   => 'monitor',
+			'once'       => 'zap',
+		);
+	}
+
+	/** Clave del "dónde" de un snippet guardado: su ubicación o su ámbito. */
+	private static function where_key( $s ) {
+		return 'html' === ( $s->type ?? 'php' )
+			? Dox_Functions::sanitize_location( $s->location ?? '' )
+			: (string) $s->scope;
+	}
+
+	private static function where_chip( $s ) {
+		$type  = 'html' === ( $s->type ?? 'php' ) ? 'html' : 'php';
+		$key   = self::where_key( $s );
+		$icons = self::where_options( $type );
+		$label = 'html' === $type ? dox_t( 'loc_' . $key ) : dox_t( 'scope_' . $key );
+		return '<span class="dxf-where" data-where="' . esc_attr( $key ) . '">'
+			. self::icon( $icons[ $key ] ?? 'globe' )
+			. esc_html( $label ) . '</span>';
+	}
+
+	private static function type_tile( $type ) {
+		$type = 'html' === $type ? 'html' : 'php';
+		return '<span class="dxf-type" data-type="' . $type . '" title="' . esc_attr( dox_t( 'type_' . $type ) ) . '">'
+			. self::icon( $type ) . '</span>';
+	}
+
+	private function render_header( $subtitle = '' ) {
+		?>
+		<header class="dxf-head">
+			<span class="dxf-appicon"><img src="<?php echo esc_url( DOX_FUNCTIONS_URL . 'assets/icon.svg' ); ?>" alt=""></span>
+			<div class="dxf-head__text">
+				<h1><?php echo esc_html( dox_t( 'plugin_name' ) ); ?> <span class="dxf-ver"><?php echo esc_html( DOX_FUNCTIONS_VERSION ); ?></span></h1>
+				<p><?php echo esc_html( $subtitle ? $subtitle : dox_t( 'list_intro' ) ); ?></p>
+			</div>
+		</header>
+		<?php
+		// WordPress coloca aquí los avisos de otros plugins (los mueve tras
+		// .wp-header-end), en vez de dentro de la primera tarjeta.
+		?>
+		<hr class="wp-header-end">
+		<?php
+		$this->render_safe_mode_strip();
+	}
+
+	private function render_safe_mode_strip() {
 		$forced = Dox_Functions::safe_mode_forced();
 		$safe   = (bool) get_option( Dox_Functions::OPT_SAFEMODE );
 		?>
-		<div class="dox-card dox-header">
-			<div class="dox-brand">
-				<img src="<?php echo esc_url( DOX_FUNCTIONS_URL . 'assets/logo.svg' ); ?>" alt="Dox Studio" class="dox-logo-img">
-				<span class="dox-pill"><?php echo esc_html( dox_t( 'pill' ) ); ?></span>
-			</div>
-			<div class="dox-header-actions">
-				<?php if ( $safe && ! $forced ) : ?>
-					<a class="dox-btn dox-btn-ghost" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_safemode_off' ), self::nonce_action( 'safemode_off' ) ) ); ?>"><?php echo esc_html( dox_t( 'safe_mode_off' ) ); ?></a>
-				<?php endif; ?>
-				<a class="dox-btn dox-btn-primary" href="<?php echo esc_url( self::page_url( array( 'action' => 'new' ) ) ); ?>"><?php echo esc_html( dox_t( 'new_function' ) ); ?></a>
-			</div>
-		</div>
 		<?php if ( $forced ) : ?>
-			<div class="dox-notice"><?php echo esc_html( dox_t( 'safe_mode_forced' ) ); ?></div>
+			<div class="dxf-strip dxf-strip--warn" role="status">
+				<span class="dxf-strip__icon"><?php echo self::icon( 'shield' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+				<p><strong><?php echo esc_html( dox_t( 'safe_strip_title' ) ); ?></strong> <?php echo esc_html( dox_t( 'safe_strip_forced' ) ); ?></p>
+			</div>
 		<?php elseif ( $safe ) : ?>
-			<div class="dox-notice"><?php echo esc_html( dox_t( 'safe_mode_active' ) ); ?></div>
+			<div class="dxf-strip dxf-strip--warn" role="status">
+				<span class="dxf-strip__icon"><?php echo self::icon( 'shield' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+				<p><strong><?php echo esc_html( dox_t( 'safe_strip_title' ) ); ?></strong> <?php echo esc_html( dox_t( 'safe_strip_body' ) ); ?></p>
+				<a class="dxf-btn dxf-btn--dark" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_safemode_off' ), self::nonce_action( 'safemode_off' ) ) ); ?>"><?php echo esc_html( dox_t( 'safe_mode_off' ) ); ?></a>
+			</div>
 		<?php endif;
 	}
 
 	private function render_list() {
 		$snippets    = Dox_Functions::get_snippets();
-		$date_format = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+		$date_format = get_option( 'date_format' );
 
 		// Read-only result flags from import redirects (display only).
 		$imported   = isset( $_GET['imported'] ) ? absint( $_GET['imported'] ) : null;
 		$import_err = ! empty( $_GET['import_err'] );
+
+		$count = array( 'all' => count( $snippets ), 'on' => 0, 'off' => 0, 'error' => 0, 'php' => 0, 'html' => 0 );
+		foreach ( $snippets as $s ) {
+			$count[ $s->is_active ? 'on' : 'off' ]++;
+			if ( ! empty( $s->last_error ) ) $count['error']++;
+			$count[ 'html' === ( $s->type ?? 'php' ) ? 'html' : 'php' ]++;
+		}
+
+		$export_url = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_export' ), self::nonce_action( 'export' ) );
 		?>
 		<?php if ( null !== $imported && ! $import_err ) : ?>
-			<div class="dox-notice dox-notice-success"><?php echo esc_html( sprintf( dox_t( 'imported_ok' ), $imported ) ); ?></div>
+			<div class="dxf-strip dxf-strip--ok" role="status">
+				<span class="dxf-strip__icon"><?php echo self::icon( 'check' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+				<p><?php echo esc_html( sprintf( dox_t( 'imported_ok' ), $imported ) ); ?></p>
+			</div>
 		<?php endif; ?>
 		<?php if ( $import_err ) : ?>
-			<div class="dox-notice dox-notice-error"><?php echo esc_html( dox_t( 'import_error' ) ); ?></div>
+			<div class="dxf-strip dxf-strip--bad" role="alert">
+				<span class="dxf-strip__icon"><?php echo self::icon( 'alert' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+				<p><?php echo esc_html( dox_t( 'import_error' ) ); ?></p>
+			</div>
+		<?php endif; ?>
+		<?php if ( $count['error'] ) : ?>
+			<div class="dxf-strip dxf-strip--bad" role="status">
+				<span class="dxf-strip__icon"><?php echo self::icon( 'alert' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+				<p><strong><?php echo esc_html( sprintf( dox_t( 1 === $count['error'] ? 'errors_one' : 'errors_many' ), $count['error'] ) ); ?></strong> <?php echo esc_html( dox_t( 1 === $count['error'] ? 'errors_hint_one' : 'errors_hint_many' ) ); ?></p>
+				<button type="button" class="dxf-btn dxf-btn--light" data-dxf-filter-go="error"><?php echo esc_html( dox_t( 'see_them' ) ); ?></button>
+			</div>
 		<?php endif; ?>
 
-		<div class="dox-card">
-			<div class="dox-card-head">
-				<div>
-					<h2><?php echo esc_html( dox_t( 'my_functions' ) ); ?></h2>
-					<p><?php echo esc_html( dox_t( 'list_intro' ) ); ?></p>
+		<?php if ( empty( $snippets ) ) : ?>
+			<?php $this->render_empty(); ?>
+			<?php return; ?>
+		<?php endif; ?>
+
+		<div class="dxf-bar">
+			<div class="dxf-stats">
+				<div class="dxf-stat" data-tone="on">
+					<span class="dxf-stat__value num"><?php echo (int) $count['on']; ?></span>
+					<span class="dxf-stat__label"><span class="dxf-dot"></span><?php echo esc_html( dox_t( 'stat_on' ) ); ?></span>
 				</div>
-				<div class="dox-list-tools">
-					<a class="dox-btn dox-btn-ghost" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_export' ), self::nonce_action( 'export' ) ) ); ?>"><?php echo esc_html( dox_t( 'export_json' ) ); ?></a>
-					<form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="dox-import-form">
-						<?php wp_nonce_field( self::nonce_action( 'import' ) ); ?>
-						<input type="hidden" name="action" value="dox_functions_import">
-						<label class="dox-btn dox-btn-ghost dox-file-label" title="<?php echo esc_attr( dox_t( 'import_note' ) ); ?>">
-							<?php echo esc_html( dox_t( 'import_json' ) ); ?>
-							<input type="file" id="dox-import-file" name="import_file" accept=".json,application/json">
-						</label>
-					</form>
+				<div class="dxf-stat" data-tone="off">
+					<span class="dxf-stat__value num"><?php echo (int) $count['off']; ?></span>
+					<span class="dxf-stat__label"><span class="dxf-dot"></span><?php echo esc_html( dox_t( 'stat_off' ) ); ?></span>
+				</div>
+				<div class="dxf-stat" data-tone="<?php echo $count['error'] ? 'bad' : 'flat'; ?>">
+					<span class="dxf-stat__value num"><?php echo (int) $count['error']; ?></span>
+					<span class="dxf-stat__label"><span class="dxf-dot"></span><?php echo esc_html( dox_t( 'stat_error' ) ); ?></span>
 				</div>
 			</div>
+			<div class="dxf-bar__tools">
+				<a class="dxf-btn" href="<?php echo esc_url( $export_url ); ?>"><?php echo self::icon( 'download' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><span class="dxf-btn__text"><?php echo esc_html( dox_t( 'export_json' ) ); ?></span></a>
+				<form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="dxf-import">
+					<?php wp_nonce_field( self::nonce_action( 'import' ) ); ?>
+					<input type="hidden" name="action" value="dox_functions_import">
+					<label class="dxf-btn" title="<?php echo esc_attr( dox_t( 'import_note' ) ); ?>">
+						<?php echo self::icon( 'upload' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><span class="dxf-btn__text"><?php echo esc_html( dox_t( 'import_json' ) ); ?></span>
+						<input type="file" id="dxf-import-file" name="import_file" accept=".json,application/json">
+					</label>
+				</form>
+				<a class="dxf-btn dxf-btn--dark" href="<?php echo esc_url( self::page_url( array( 'action' => 'new' ) ) ); ?>"><?php echo self::icon( 'plus' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><span><?php echo esc_html( dox_t( 'new_function' ) ); ?></span></a>
+			</div>
+		</div>
 
-			<?php if ( empty( $snippets ) ) : ?>
-				<div class="dox-empty">
-					<p><?php echo esc_html( dox_t( 'empty_state' ) ); ?></p>
-					<a class="dox-btn dox-btn-primary" href="<?php echo esc_url( self::page_url( array( 'action' => 'new' ) ) ); ?>"><?php echo esc_html( dox_t( 'new_function' ) ); ?></a>
-				</div>
-			<?php else : ?>
-				<div class="dox-table-wrap">
-					<table class="dox-table">
-						<thead>
-							<tr>
-								<th><?php echo esc_html( dox_t( 'status' ) ); ?></th>
-								<th><?php echo esc_html( dox_t( 'title' ) ); ?></th>
-								<th><?php echo esc_html( dox_t( 'scope' ) ); ?></th>
-								<th><?php echo esc_html( dox_t( 'priority' ) ); ?></th>
-								<th><?php echo esc_html( dox_t( 'updated' ) ); ?></th>
-								<th></th>
-							</tr>
-						</thead>
-						<tbody>
-						<?php foreach ( $snippets as $s ) :
-							$toggle_nonce  = wp_create_nonce( self::nonce_action( 'toggle', $s->id ) );
-							$toggle_url    = add_query_arg( '_wpnonce', $toggle_nonce, admin_url( 'admin-post.php?action=dox_functions_toggle&id=' . $s->id ) );
-							$edit_url      = self::page_url( array( 'action' => 'edit', 'id' => $s->id ) );
-							$duplicate_url = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_duplicate&id=' . $s->id ), self::nonce_action( 'duplicate', $s->id ) );
-							$delete_url    = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_delete&id=' . $s->id ), self::nonce_action( 'delete', $s->id ) );
-							$row_title     = $s->title ?: dox_t( 'no_title' );
-							?>
-							<tr>
-								<td>
-									<a class="dox-switch <?php echo $s->is_active ? 'is-on' : ''; ?>"
-										href="<?php echo esc_url( $toggle_url ); ?>"
-										role="switch"
-										aria-checked="<?php echo $s->is_active ? 'true' : 'false'; ?>"
-										aria-label="<?php echo esc_attr( $row_title ); ?>"
-										data-id="<?php echo (int) $s->id; ?>"
-										data-nonce="<?php echo esc_attr( $toggle_nonce ); ?>">
-										<span class="dox-switch-knob"></span>
-									</a>
-								</td>
-								<td>
-									<a href="<?php echo esc_url( $edit_url ); ?>"><strong><?php echo esc_html( $row_title ); ?></strong></a>
-									<?php if ( $s->description ) : ?>
-										<div class="dox-muted"><?php echo esc_html( wp_trim_words( wp_strip_all_tags( $s->description ), 18 ) ); ?></div>
-									<?php endif; ?>
-									<?php if ( ! empty( $s->last_error ) ) : ?>
-										<div class="dox-error-line" title="<?php echo esc_attr( $s->last_error ); ?>">⚠ <?php echo esc_html( dox_t( 'auto_disabled' ) . ': ' . wp_html_excerpt( $s->last_error, 90, '…' ) ); ?></div>
-									<?php endif; ?>
-								</td>
-								<td><span class="dox-tag"><?php echo esc_html( dox_t( 'scope_' . $s->scope ) ); ?></span></td>
-								<td><?php echo (int) $s->priority; ?></td>
-								<td class="dox-muted"><?php echo esc_html( mysql2date( $date_format, $s->updated_at ) ); ?></td>
-								<td class="dox-row-actions">
-									<a href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html( dox_t( 'edit' ) ); ?></a>
-									<a href="<?php echo esc_url( $duplicate_url ); ?>"><?php echo esc_html( dox_t( 'duplicate' ) ); ?></a>
-									<a href="<?php echo esc_url( $delete_url ); ?>" class="dox-danger" onclick="return confirm('<?php echo esc_js( dox_t( 'confirm_delete' ) ); ?>');"><?php echo esc_html( dox_t( 'delete' ) ); ?></a>
-								</td>
-							</tr>
-						<?php endforeach; ?>
-						</tbody>
-					</table>
+		<div class="dxf-card dxf-list">
+			<?php // Filtros y buscador solo cuando hay lista que filtrar. ?>
+			<?php if ( $count['all'] > 3 ) : ?>
+				<div class="dxf-filters" role="toolbar" aria-label="<?php echo esc_attr( dox_t( 'filters' ) ); ?>">
+					<button type="button" class="dxf-filter" data-filter="all" aria-pressed="true"><?php echo esc_html( dox_t( 'filter_all' ) ); ?> <b class="num"><?php echo (int) $count['all']; ?></b></button>
+					<button type="button" class="dxf-filter" data-filter="on" aria-pressed="false"><span class="dxf-dot" data-tone="on"></span><?php echo esc_html( dox_t( 'stat_on' ) ); ?> <b class="num"><?php echo (int) $count['on']; ?></b></button>
+					<button type="button" class="dxf-filter" data-filter="off" aria-pressed="false"><span class="dxf-dot" data-tone="off"></span><?php echo esc_html( dox_t( 'stat_off' ) ); ?> <b class="num"><?php echo (int) $count['off']; ?></b></button>
+					<?php if ( $count['error'] ) : ?>
+						<button type="button" class="dxf-filter" data-filter="error" aria-pressed="false"><span class="dxf-dot" data-tone="bad"></span><?php echo esc_html( dox_t( 'stat_error' ) ); ?> <b class="num"><?php echo (int) $count['error']; ?></b></button>
+					<?php endif; ?>
+					<?php if ( $count['php'] && $count['html'] ) : ?>
+						<span class="dxf-filters__sep" aria-hidden="true"></span>
+						<button type="button" class="dxf-filter" data-filter="php" aria-pressed="false"><span class="dxf-dot" data-type="php"></span>PHP <b class="num"><?php echo (int) $count['php']; ?></b></button>
+						<button type="button" class="dxf-filter" data-filter="html" aria-pressed="false"><span class="dxf-dot" data-type="html"></span>HTML <b class="num"><?php echo (int) $count['html']; ?></b></button>
+					<?php endif; ?>
+					<label class="dxf-search">
+						<?php echo self::icon( 'search' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+						<span class="screen-reader-text"><?php echo esc_html( dox_t( 'search' ) ); ?></span>
+						<input type="search" id="dxf-search" placeholder="<?php echo esc_attr( dox_t( 'search' ) ); ?>" autocomplete="off">
+						<kbd class="dxf-kbd">/</kbd>
+					</label>
 				</div>
 			<?php endif; ?>
+
+			<div class="dxf-scroll">
+				<table class="dxf-table">
+					<thead>
+						<tr>
+							<th class="dxf-col-switch"><span class="screen-reader-text"><?php echo esc_html( dox_t( 'status' ) ); ?></span></th>
+							<th><?php echo esc_html( dox_t( 'col_function' ) ); ?></th>
+							<th><?php echo esc_html( dox_t( 'col_where' ) ); ?></th>
+							<th class="r dxf-col-prio"><?php echo esc_html( dox_t( 'priority' ) ); ?></th>
+							<th class="dxf-col-date"><?php echo esc_html( dox_t( 'updated' ) ); ?></th>
+							<th><span class="screen-reader-text"><?php echo esc_html( dox_t( 'actions' ) ); ?></span></th>
+						</tr>
+					</thead>
+					<tbody>
+					<?php foreach ( $snippets as $s ) :
+						$type          = 'html' === ( $s->type ?? 'php' ) ? 'html' : 'php';
+						$toggle_nonce  = wp_create_nonce( self::nonce_action( 'toggle', $s->id ) );
+						$toggle_url    = add_query_arg( '_wpnonce', $toggle_nonce, admin_url( 'admin-post.php?action=dox_functions_toggle&id=' . $s->id ) );
+						$edit_url      = self::page_url( array( 'action' => 'edit', 'id' => $s->id ) );
+						$duplicate_url = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_duplicate&id=' . $s->id ), self::nonce_action( 'duplicate', $s->id ) );
+						$delete_url    = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_delete&id=' . $s->id ), self::nonce_action( 'delete', $s->id ) );
+						$row_title     = $s->title ?: dox_t( 'no_title' );
+						$search_text   = strtolower( $row_title . ' ' . wp_strip_all_tags( (string) $s->description ) );
+						?>
+						<tr data-active="<?php echo $s->is_active ? '1' : '0'; ?>" data-type="<?php echo esc_attr( $type ); ?>" data-error="<?php echo empty( $s->last_error ) ? '0' : '1'; ?>" data-search="<?php echo esc_attr( $search_text ); ?>">
+							<td class="dxf-col-switch">
+								<a class="dxf-switch <?php echo $s->is_active ? 'is-on' : ''; ?>"
+									href="<?php echo esc_url( $toggle_url ); ?>"
+									role="switch"
+									aria-checked="<?php echo $s->is_active ? 'true' : 'false'; ?>"
+									aria-label="<?php echo esc_attr( $row_title ); ?>"
+									data-id="<?php echo (int) $s->id; ?>"
+									data-nonce="<?php echo esc_attr( $toggle_nonce ); ?>">
+									<span class="dxf-switch__knob"></span>
+								</a>
+							</td>
+							<td>
+								<div class="dxf-fn">
+									<?php echo self::type_tile( $type ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+									<div class="dxf-fn__text">
+										<a class="dxf-fn__title" href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html( $row_title ); ?></a>
+										<?php if ( $s->description ) : ?>
+											<span class="dxf-fn__desc"><?php echo esc_html( wp_trim_words( wp_strip_all_tags( $s->description ), 16 ) ); ?></span>
+										<?php endif; ?>
+										<?php // En el teléfono la columna "Dónde corre" no cabe: va aquí. ?>
+										<span class="dxf-fn__where"><?php echo self::where_chip( $s ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+										<?php if ( ! empty( $s->last_error ) ) : ?>
+											<span class="dxf-fn__error" title="<?php echo esc_attr( $s->last_error ); ?>"><?php echo self::icon( 'alert' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php echo esc_html( dox_t( 'auto_disabled' ) . ': ' . wp_html_excerpt( $s->last_error, 80, '…' ) ); ?></span>
+										<?php endif; ?>
+									</div>
+								</div>
+							</td>
+							<td><?php echo self::where_chip( $s ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></td>
+							<td class="r num dxf-col-prio"><?php echo (int) $s->priority; ?></td>
+							<td class="dxf-col-date dxf-muted"><?php echo esc_html( mysql2date( $date_format, $s->updated_at ) ); ?></td>
+							<td class="dxf-actions">
+								<a class="dxf-btn dxf-btn--sm dxf-edit" href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html( dox_t( 'edit' ) ); ?></a>
+								<a class="dxf-iconbtn" href="<?php echo esc_url( $duplicate_url ); ?>" title="<?php echo esc_attr( dox_t( 'duplicate' ) ); ?>" aria-label="<?php echo esc_attr( dox_t( 'duplicate' ) . ': ' . $row_title ); ?>"><?php echo self::icon( 'copy' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></a>
+								<a class="dxf-iconbtn dxf-iconbtn--bad" href="<?php echo esc_url( $delete_url ); ?>" title="<?php echo esc_attr( dox_t( 'delete' ) ); ?>" aria-label="<?php echo esc_attr( dox_t( 'delete' ) . ': ' . $row_title ); ?>" onclick="return confirm('<?php echo esc_js( dox_t( 'confirm_delete' ) ); ?>');"><?php echo self::icon( 'trash' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></a>
+							</td>
+						</tr>
+					<?php endforeach; ?>
+					</tbody>
+				</table>
+				<div class="dxf-nomatch" hidden>
+					<p><?php echo esc_html( dox_t( 'no_match' ) ); ?></p>
+					<button type="button" class="dxf-btn" data-dxf-filter-go="all"><?php echo esc_html( dox_t( 'show_all' ) ); ?></button>
+				</div>
+			</div>
 		</div>
+
+		<?php $this->render_help(); ?>
+		<?php
+	}
+
+	/** Lista vacía: las dos maneras de empezar, cada una con para qué sirve. */
+	private function render_empty() {
+		?>
+		<div class="dxf-card dxf-empty">
+			<h2><?php echo esc_html( dox_t( 'empty_title' ) ); ?></h2>
+			<p><?php echo esc_html( dox_t( 'empty_state' ) ); ?></p>
+			<div class="dxf-start">
+				<?php foreach ( array( 'php', 'html' ) as $type ) : ?>
+					<a class="dxf-start__card" data-type="<?php echo esc_attr( $type ); ?>" href="<?php echo esc_url( self::page_url( array( 'action' => 'new', 'type' => $type ) ) ); ?>">
+						<?php echo self::type_tile( $type ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+						<strong><?php echo esc_html( dox_t( 'type_' . $type ) ); ?></strong>
+						<span><?php echo esc_html( dox_t( 'type_' . $type . '_desc' ) ); ?></span>
+						<em><?php echo esc_html( dox_t( 'type_' . $type . '_examples' ) ); ?></em>
+					</a>
+				<?php endforeach; ?>
+			</div>
+			<form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="dxf-import dxf-empty__import">
+				<?php wp_nonce_field( self::nonce_action( 'import' ) ); ?>
+				<input type="hidden" name="action" value="dox_functions_import">
+				<label class="dxf-link">
+					<?php echo esc_html( dox_t( 'empty_import' ) ); ?>
+					<input type="file" id="dxf-import-file" name="import_file" accept=".json,application/json">
+				</label>
+			</form>
+		</div>
+		<?php $this->render_help(); ?>
+		<?php
+	}
+
+	/** Autoservicio: qué hacer si un snippet rompe el sitio, a la vista. */
+	private function render_help() {
+		?>
+		<aside class="dxf-help">
+			<span class="dxf-help__icon"><?php echo self::icon( 'shield' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+			<div>
+				<strong><?php echo esc_html( dox_t( 'help_title' ) ); ?></strong>
+				<p><?php echo wp_kses( dox_t( 'help_body' ), array( 'code' => array() ) ); ?></p>
+			</div>
+		</aside>
 		<?php
 	}
 
@@ -398,88 +604,141 @@ class Dox_Functions_Admin {
 		$src          = is_array( $stash ) && isset( $stash['data'] ) ? $stash['data'] : null;
 		$syntax_error = is_array( $stash ) ? ( $stash['error'] ?? '' ) : '';
 
+		// Un snippet nuevo puede llegar con ?type=html desde la lista vacía.
+		$new_type = isset( $_GET['type'] ) ? Dox_Functions::sanitize_type( sanitize_key( wp_unslash( $_GET['type'] ) ) ) : 'php'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		$type        = $src ? Dox_Functions::sanitize_type( (string) ( $src['type'] ?? 'php' ) ) : ( $snippet ? Dox_Functions::sanitize_type( $snippet->type ?? 'php' ) : $new_type );
 		$title       = $src ? (string) ( $src['title'] ?? '' )       : ( $snippet->title ?? '' );
 		$description = $src ? (string) ( $src['description'] ?? '' ) : ( $snippet->description ?? '' );
-		$code        = $src ? (string) ( $src['code'] ?? '' )        : ( $snippet->code ?? dox_t( 'starter_code' ) );
+		$code        = $src ? (string) ( $src['code'] ?? '' )        : ( $snippet->code ?? ( 'html' === $type ? '' : dox_t( 'starter_code' ) ) );
 		$scope       = $src ? (string) ( $src['scope'] ?? 'everywhere' ) : ( $snippet->scope ?? 'everywhere' );
+		$location    = $src ? Dox_Functions::sanitize_location( (string) ( $src['location'] ?? 'head' ) ) : Dox_Functions::sanitize_location( $snippet->location ?? 'head' );
 		$priority    = $src ? (int) ( $src['priority'] ?? 10 )       : (int) ( $snippet->priority ?? 10 );
 		$is_active   = $src ? (int) ! empty( $src['is_active'] )     : ( $snippet ? (int) $snippet->is_active : 0 );
 
 		$date_format = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="dox-card dox-editor">
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="dxf-editor" data-type="<?php echo esc_attr( $type ); ?>">
 			<?php wp_nonce_field( self::nonce_action( 'save', $id ) ); ?>
 			<input type="hidden" name="action" value="dox_functions_save">
 			<input type="hidden" name="id" value="<?php echo (int) $id; ?>">
 
+			<div class="dxf-topbar">
+				<a class="dxf-iconbtn" href="<?php echo esc_url( self::page_url() ); ?>" title="<?php echo esc_attr( dox_t( 'back' ) ); ?>" aria-label="<?php echo esc_attr( dox_t( 'back' ) ); ?>"><?php echo self::icon( 'back' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></a>
+				<div class="dxf-topbar__title">
+					<span><?php echo esc_html( dox_t( 'my_functions' ) ); ?></span>
+					<h1><?php echo esc_html( $id ? ( $title ?: dox_t( 'edit_function' ) ) : dox_t( 'create_function' ) ); ?></h1>
+				</div>
+				<span class="dxf-dirty" hidden><?php echo esc_html( dox_t( 'unsaved' ) ); ?></span>
+				<label class="dxf-switch-inline">
+					<input type="checkbox" name="is_active" value="1" <?php checked( $is_active, 1 ); ?>>
+					<span class="dxf-switch <?php echo $is_active ? 'is-on' : ''; ?>"><span class="dxf-switch__knob"></span></span>
+					<span><?php echo esc_html( dox_t( 'active' ) ); ?></span>
+				</label>
+				<button type="button" id="dxf-validate" class="dxf-btn dxf-only-php"><span class="dxf-btn__label"><?php echo esc_html( dox_t( 'validate' ) ); ?></span></button>
+				<button type="submit" class="dxf-btn dxf-btn--dark"><span class="dxf-btn__label"><?php echo esc_html( dox_t( 'save_changes' ) ); ?></span></button>
+			</div>
+			<hr class="wp-header-end">
+
 			<?php if ( ! empty( $_GET['saved'] ) ) : ?>
-				<div class="dox-notice dox-notice-success"><?php echo esc_html( dox_t( 'saved' ) ); ?></div>
+				<div class="dxf-strip dxf-strip--ok" role="status">
+					<span class="dxf-strip__icon"><?php echo self::icon( 'check' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+					<p><?php echo esc_html( dox_t( 'saved' ) ); ?></p>
+				</div>
 			<?php endif; ?>
 
 			<?php if ( $syntax_error ) : ?>
-				<div class="dox-notice dox-notice-error"><?php echo esc_html( sprintf( dox_t( 'syntax_error' ), $syntax_error ) ); ?></div>
+				<div class="dxf-strip dxf-strip--bad" role="alert">
+					<span class="dxf-strip__icon"><?php echo self::icon( 'alert' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+					<p><strong><?php echo esc_html( dox_t( 'not_saved' ) ); ?></strong> <?php echo esc_html( $syntax_error ); ?></p>
+				</div>
 			<?php endif; ?>
 
 			<?php if ( $snippet && ! empty( $snippet->last_error ) ) : ?>
-				<div class="dox-notice dox-notice-error">
-					<strong><?php echo esc_html( dox_t( 'auto_disabled' ) ); ?>:</strong>
-					<?php echo esc_html( $snippet->last_error ); ?>
-					<?php if ( ! empty( $snippet->last_error_at ) ) : ?>
-						<span class="dox-muted">(<?php echo esc_html( mysql2date( $date_format, $snippet->last_error_at ) ); ?>)</span>
-					<?php endif; ?>
+				<div class="dxf-strip dxf-strip--bad" role="status">
+					<span class="dxf-strip__icon"><?php echo self::icon( 'alert' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+					<p>
+						<strong><?php echo esc_html( dox_t( 'auto_disabled' ) ); ?>:</strong>
+						<?php echo esc_html( $snippet->last_error ); ?>
+						<?php if ( ! empty( $snippet->last_error_at ) ) : ?>
+							<span class="dxf-muted">(<?php echo esc_html( mysql2date( $date_format, $snippet->last_error_at ) ); ?>)</span>
+						<?php endif; ?>
+					</p>
 				</div>
 			<?php endif; ?>
 
-			<div class="dox-card-head">
-				<div>
-					<a class="dox-back" href="<?php echo esc_url( self::page_url() ); ?>"><?php echo esc_html( dox_t( 'back' ) ); ?></a>
-					<h2><?php echo esc_html( $id ? dox_t( 'edit_function' ) : dox_t( 'create_function' ) ); ?></h2>
-					<p><?php echo esc_html( dox_t( 'editor_intro' ) ); ?></p>
-				</div>
-				<label class="dox-switch-inline">
-					<input type="checkbox" name="is_active" value="1" <?php checked( $is_active, 1 ); ?>>
-					<span class="dox-switch <?php echo $is_active ? 'is-on' : ''; ?>"><span class="dox-switch-knob"></span></span>
-					<span><?php echo esc_html( dox_t( 'active' ) ); ?></span>
-				</label>
-			</div>
+			<fieldset class="dxf-types">
+				<legend class="screen-reader-text"><?php echo esc_html( dox_t( 'type' ) ); ?></legend>
+				<?php foreach ( array( 'php', 'html' ) as $t ) : ?>
+					<label class="dxf-choice">
+						<input type="radio" name="type" value="<?php echo esc_attr( $t ); ?>" <?php checked( $type, $t ); ?>>
+						<?php echo self::type_tile( $t ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+						<span class="dxf-choice__text">
+							<strong><?php echo esc_html( dox_t( 'type_' . $t ) ); ?></strong>
+							<span><?php echo esc_html( dox_t( 'type_' . $t . '_desc' ) ); ?></span>
+						</span>
+						<span class="dxf-choice__check"><?php echo self::icon( 'check' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+					</label>
+				<?php endforeach; ?>
+			</fieldset>
 
-			<div class="dox-grid">
-				<div class="dox-field">
-					<label for="dox-title"><?php echo esc_html( dox_t( 'title' ) ); ?></label>
-					<input type="text" id="dox-title" name="title" value="<?php echo esc_attr( $title ); ?>" placeholder="<?php echo esc_attr( dox_t( 'placeholder_title' ) ); ?>" required>
+			<div class="dxf-layout">
+				<div class="dxf-card dxf-main">
+					<div class="dxf-field">
+						<label for="dxf-title"><?php echo esc_html( dox_t( 'title' ) ); ?></label>
+						<input type="text" id="dxf-title" name="title" value="<?php echo esc_attr( $title ); ?>" placeholder="<?php echo esc_attr( dox_t( 'placeholder_title' ) ); ?>" required>
+					</div>
+					<div class="dxf-field">
+						<label for="dxf-description"><?php echo esc_html( dox_t( 'description' ) ); ?> <span class="dxf-optional"><?php echo esc_html( dox_t( 'optional' ) ); ?></span></label>
+						<input type="text" id="dxf-description" name="description" value="<?php echo esc_attr( $description ); ?>" placeholder="<?php echo esc_attr( dox_t( 'placeholder_desc' ) ); ?>">
+					</div>
+					<div class="dxf-field dxf-field--code">
+						<div class="dxf-code-head">
+							<label for="dxf-code">
+								<span class="dxf-only-php"><?php echo esc_html( dox_t( 'php_code' ) ); ?></span>
+								<span class="dxf-only-html"><?php echo esc_html( dox_t( 'html_code' ) ); ?></span>
+							</label>
+							<span id="dxf-validate-result" class="dxf-validate" role="status" aria-live="polite"></span>
+						</div>
+						<textarea id="dxf-code" name="code" rows="18" spellcheck="false"><?php echo esc_textarea( $code ); ?></textarea>
+						<p class="dxf-hint dxf-only-php"><?php echo wp_kses_post( dox_t( 'no_open_tag' ) ); ?></p>
+						<p class="dxf-hint dxf-only-html"><?php echo wp_kses_post( dox_t( 'html_hint' ) ); ?></p>
+					</div>
 				</div>
-				<div class="dox-field">
-					<label for="dox-scope"><?php echo esc_html( dox_t( 'scope' ) ); ?></label>
-					<select id="dox-scope" name="scope">
-						<option value="everywhere" <?php selected( $scope, 'everywhere' ); ?>><?php echo esc_html( dox_t( 'scope_everywhere' ) ); ?></option>
-						<option value="admin"      <?php selected( $scope, 'admin' ); ?>><?php echo esc_html( dox_t( 'scope_admin' ) ); ?></option>
-						<option value="frontend"   <?php selected( $scope, 'frontend' ); ?>><?php echo esc_html( dox_t( 'scope_frontend' ) ); ?></option>
-						<option value="once"       <?php selected( $scope, 'once' ); ?>><?php echo esc_html( dox_t( 'scope_once' ) ); ?></option>
-					</select>
-				</div>
-				<div class="dox-field">
-					<label for="dox-priority"><?php echo esc_html( dox_t( 'priority' ) ); ?></label>
-					<input type="number" id="dox-priority" name="priority" value="<?php echo (int) $priority; ?>" min="0" max="999">
-					<p class="dox-muted"><?php echo esc_html( dox_t( 'priority_hint' ) ); ?></p>
-				</div>
-			</div>
 
-			<div class="dox-field">
-				<label for="dox-description"><?php echo esc_html( dox_t( 'description' ) ); ?></label>
-				<input type="text" id="dox-description" name="description" value="<?php echo esc_attr( $description ); ?>" placeholder="<?php echo esc_attr( dox_t( 'placeholder_desc' ) ); ?>">
-			</div>
+				<aside class="dxf-side">
+					<div class="dxf-card">
+						<h2 class="dxf-side__title"><?php echo esc_html( dox_t( 'where_title' ) ); ?></h2>
+						<?php foreach ( array( 'php', 'html' ) as $t ) :
+							$field   = 'html' === $t ? 'location' : 'scope';
+							$current = 'html' === $t ? $location : $scope;
+							?>
+							<div class="dxf-where-list dxf-only-<?php echo esc_attr( $t ); ?>" role="radiogroup" aria-label="<?php echo esc_attr( dox_t( 'where_title' ) ); ?>">
+								<?php foreach ( self::where_options( $t ) as $key => $icon ) :
+									$label_key = 'html' === $t ? 'loc_' . $key : 'scope_' . $key;
+									?>
+									<label class="dxf-option" data-where="<?php echo esc_attr( $key ); ?>">
+										<input type="radio" name="<?php echo esc_attr( $field ); ?>" value="<?php echo esc_attr( $key ); ?>" <?php checked( $current, $key ); ?>>
+										<span class="dxf-option__icon"><?php echo self::icon( $icon ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+										<span class="dxf-option__text">
+											<strong><?php echo esc_html( dox_t( $label_key ) ); ?></strong>
+											<span><?php echo esc_html( dox_t( $label_key . '_desc' ) ); ?></span>
+										</span>
+									</label>
+								<?php endforeach; ?>
+							</div>
+						<?php endforeach; ?>
 
-			<div class="dox-field">
-				<label for="dox-code"><?php echo esc_html( dox_t( 'php_code' ) ); ?></label>
-				<textarea id="dox-code" name="code" rows="18"><?php echo esc_textarea( $code ); ?></textarea>
-				<p class="dox-muted"><?php echo wp_kses_post( dox_t( 'no_open_tag' ) ); ?></p>
-			</div>
+						<div class="dxf-field dxf-field--prio">
+							<label for="dxf-priority"><?php echo esc_html( dox_t( 'priority' ) ); ?></label>
+							<input type="number" id="dxf-priority" name="priority" value="<?php echo (int) $priority; ?>" min="0" max="999">
+							<p class="dxf-hint dxf-only-php"><?php echo esc_html( dox_t( 'priority_hint' ) ); ?></p>
+							<p class="dxf-hint dxf-only-html"><?php echo esc_html( dox_t( 'priority_hint_html' ) ); ?></p>
+						</div>
+					</div>
 
-			<div class="dox-actions">
-				<span id="dox-validate-result" class="dox-validate-result" role="status" aria-live="polite"></span>
-				<a class="dox-btn dox-btn-ghost" href="<?php echo esc_url( self::page_url() ); ?>"><?php echo esc_html( dox_t( 'cancel' ) ); ?></a>
-				<button type="button" id="dox-validate" class="dox-btn dox-btn-ghost"><?php echo esc_html( dox_t( 'validate' ) ); ?></button>
-				<button type="submit" class="dox-btn dox-btn-primary"><?php echo esc_html( dox_t( 'save_changes' ) ); ?></button>
+					<?php $this->render_help(); ?>
+				</aside>
 			</div>
 		</form>
 		<?php
@@ -509,15 +768,18 @@ class Dox_Functions_Admin {
 			'title'       => sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) ),
 			'description' => wp_kses_post( wp_unslash( $_POST['description'] ?? '' ) ),
 			'code'        => $code,
+			'type'        => Dox_Functions::sanitize_type( sanitize_key( wp_unslash( $_POST['type'] ?? 'php' ) ) ),
 			'scope'       => sanitize_key( wp_unslash( $_POST['scope'] ?? 'everywhere' ) ),
+			'location'    => Dox_Functions::sanitize_location( sanitize_key( wp_unslash( $_POST['location'] ?? 'head' ) ) ),
 			'priority'    => absint( $_POST['priority'] ?? 10 ),
 			'is_active'   => ! empty( $_POST['is_active'] ),
 		);
 
-		// Syntax validation BEFORE saving. On failure, stash everything the
-		// user submitted so the editor repopulates — the typed code must
-		// survive the redirect, not just the error message.
-		$check = Dox_Functions::validate_syntax( $code );
+		// Validation BEFORE saving (syntax for PHP, stray PHP tags for HTML).
+		// On failure, stash everything the user submitted so the editor
+		// repopulates — the typed code must survive the redirect, not just the
+		// error message.
+		$check = Dox_Functions::validate_snippet( $data['type'], $code );
 		if ( true !== $check ) {
 			set_transient(
 				self::STASH_KEY . get_current_user_id(),
@@ -577,7 +839,9 @@ class Dox_Functions_Admin {
 			'title'       => mb_substr( (string) $s->title, 0, 180 ) . dox_t( 'copy_suffix' ),
 			'description' => $s->description,
 			'code'        => $s->code,
+			'type'        => $s->type ?? 'php',
 			'scope'       => $s->scope,
+			'location'    => $s->location ?? 'head',
 			'priority'    => $s->priority,
 			'is_active'   => 0, // copies always start off
 		) );
@@ -597,7 +861,9 @@ class Dox_Functions_Admin {
 				'title'       => $s->title,
 				'description' => $s->description,
 				'code'        => $s->code,
+				'type'        => $s->type ?? 'php',
 				'scope'       => $s->scope,
+				'location'    => $s->location ?? 'head',
 				'priority'    => (int) $s->priority,
 				'is_active'   => (bool) $s->is_active,
 			);
@@ -657,14 +923,16 @@ class Dox_Functions_Admin {
 				'title'       => self::import_text( $item, 'title' ),
 				'description' => self::import_text( $item, 'description' ),
 				'code'        => $code,
+				'type'        => self::import_text( $item, 'type', 'php' ),
 				'scope'       => self::import_text( $item, 'scope', 'everywhere' ),
+				'location'    => self::import_text( $item, 'location', 'head' ),
 				'priority'    => is_numeric( $item['priority'] ?? null ) ? (int) $item['priority'] : 10,
 				'is_active'   => 0,
 			) );
 
 			// Flag invalid code visibly (badge in the list) without spamming
 			// the site-wide notice — the importer is looking at the list.
-			$check = Dox_Functions::validate_syntax( $code );
+			$check = Dox_Functions::validate_snippet( Dox_Functions::sanitize_type( self::import_text( $item, 'type', 'php' ) ), $code );
 			if ( true !== $check ) {
 				Dox_Functions::record_error( $new_id, $check, false );
 			}
@@ -711,12 +979,13 @@ class Dox_Functions_Admin {
 		// only parsed (token_get_all), never executed or stored here.
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$code  = wp_unslash( $_POST['code'] ?? '' );
-		$check = Dox_Functions::validate_syntax( $code );
+		$type  = Dox_Functions::sanitize_type( sanitize_key( wp_unslash( $_POST['type'] ?? 'php' ) ) );
+		$check = Dox_Functions::validate_snippet( $type, $code );
 
 		if ( true === $check ) {
 			wp_send_json_success( array( 'message' => dox_t( 'syntax_ok' ) ) );
 		}
-		wp_send_json_error( array( 'message' => sprintf( dox_t( 'syntax_error' ), $check ) ) );
+		wp_send_json_error( array( 'message' => $check ) );
 	}
 
 	/**

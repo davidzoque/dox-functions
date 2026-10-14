@@ -16,9 +16,20 @@ class Dox_Functions {
 	// on every load and runs dbDelta only when they differ. On multisite this
 	// also creates the per-site table the first time a subsite loads the
 	// plugin (network activation only creates the main site's table).
-	const DB_VERSION = '3';
+	const DB_VERSION = '4';
 
 	const SCOPES = array( 'everywhere', 'admin', 'frontend', 'once' );
+
+	// Tipos de snippet: PHP se ejecuta con eval(); HTML (scripts, estilos,
+	// metas, píxeles) se imprime tal cual en la web pública, en su ubicación.
+	const TYPES = array( 'php', 'html' );
+
+	// Dónde se imprime un snippet HTML => el hook de WordPress que lo pinta.
+	const LOCATIONS = array(
+		'head'      => 'wp_head',
+		'body_open' => 'wp_body_open',
+		'footer'    => 'wp_footer',
+	);
 
 	private static $instance = null;
 
@@ -68,7 +79,9 @@ class Dox_Functions {
 			title VARCHAR(191) NOT NULL DEFAULT '',
 			description TEXT NULL,
 			code LONGTEXT NOT NULL,
+			type VARCHAR(10) NOT NULL DEFAULT 'php',
 			scope VARCHAR(20) NOT NULL DEFAULT 'everywhere',
+			location VARCHAR(20) NOT NULL DEFAULT 'head',
 			is_active TINYINT(1) NOT NULL DEFAULT 0,
 			priority INT NOT NULL DEFAULT 10,
 			last_error TEXT NULL,
@@ -119,7 +132,9 @@ class Dox_Functions {
 			'title'         => sanitize_text_field( $data['title'] ?? '' ),
 			'description'   => wp_kses_post( $data['description'] ?? '' ),
 			'code'          => (string) ( $data['code'] ?? '' ),
+			'type'          => self::sanitize_type( $data['type'] ?? '' ),
 			'scope'         => in_array( $data['scope'] ?? '', self::SCOPES, true ) ? $data['scope'] : 'everywhere',
+			'location'      => self::sanitize_location( $data['location'] ?? '' ),
 			'is_active'     => ! empty( $data['is_active'] ) ? 1 : 0,
 			'priority'      => isset( $data['priority'] ) ? (int) $data['priority'] : 10,
 			// A human edit supersedes any recorded auto-disable error.
@@ -191,6 +206,49 @@ class Dox_Functions {
 			(int) $id
 		) );
 		return (bool) $claimed;
+	}
+
+	public static function sanitize_type( $type ) {
+		return in_array( $type, self::TYPES, true ) ? $type : 'php';
+	}
+
+	public static function sanitize_location( $location ) {
+		return isset( self::LOCATIONS[ $location ] ) ? $location : 'head';
+	}
+
+	/**
+	 * Comprueba un snippet según su tipo, sin ejecutarlo. Devuelve true o el
+	 * mensaje que se enseña en el editor.
+	 *
+	 * - PHP: sintaxis con token_get_all. Si falla y el código empieza por una
+	 *   etiqueta (<script>, <meta>, <!-- ...), casi seguro es un píxel pegado
+	 *   en el tipo equivocado: se dice, porque el error de PHP no lo explica.
+	 * - HTML: se imprime tal cual, así que lo único que se vigila es PHP metido
+	 *   dentro, que nunca se ejecutaría y saldría como texto en la página.
+	 */
+	public static function validate_snippet( $type, $code ) {
+		if ( 'html' === $type ) {
+			if ( preg_match( '/<\?(php|=)/i', (string) $code ) ) {
+				return dox_t( 'html_has_php' );
+			}
+			return true;
+		}
+
+		$check = self::validate_syntax( $code );
+		if ( true === $check ) {
+			return true;
+		}
+		$check = sprintf( dox_t( 'syntax_error' ), $check );
+		if ( self::looks_like_html( $code ) ) {
+			$check .= ' ' . dox_t( 'looks_like_html' );
+		}
+		return $check;
+	}
+
+	/** ¿El código PHP empieza por una etiqueta HTML y no por <?php? */
+	public static function looks_like_html( $code ) {
+		$code = ltrim( (string) $code );
+		return '<' === substr( $code, 0, 1 ) && 0 !== stripos( $code, '<?php' );
 	}
 
 	/**
