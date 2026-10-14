@@ -210,13 +210,15 @@ class Dox_Functions {
 
 	// Minúsculas y sin espacios antes de comparar: un JSON hecho a mano con
 	// "HTML" o " Footer" se importa igual que con "html" y "footer".
+	// Un valor que no es escalar (un JSON con una lista donde va el tipo) cuenta
+	// como vacío, en vez de soltar "Array to string conversion".
 	public static function sanitize_type( $type ) {
-		$type = strtolower( trim( (string) $type ) );
+		$type = is_scalar( $type ) ? strtolower( trim( (string) $type ) ) : '';
 		return in_array( $type, self::TYPES, true ) ? $type : 'php';
 	}
 
 	public static function sanitize_location( $location ) {
-		$location = strtolower( trim( (string) $location ) );
+		$location = is_scalar( $location ) ? strtolower( trim( (string) $location ) ) : '';
 		return isset( self::LOCATIONS[ $location ] ) ? $location : 'head';
 	}
 

@@ -725,15 +725,20 @@ class Dox_Functions_Admin {
 				</div>
 			<?php endif; ?>
 
+			<?php if ( self::type_refused( $type ) ) : ?>
+				<?php
+				// El tipo actual está prohibido, así que su radio sale desactivado y
+				// no se envía: este hidden lo conserva. Va antes de los radios para
+				// que, si se elige el otro tipo, ese radio llegue después y gane
+				// (PHP se queda con el último valor de un mismo nombre).
+				?>
+				<input type="hidden" name="type" value="<?php echo esc_attr( $type ); ?>">
+			<?php endif; ?>
 			<fieldset class="dxf-types">
 				<legend class="screen-reader-text"><?php echo esc_html( dox_t( 'type' ) ); ?></legend>
 				<?php foreach ( array( 'php', 'html' ) as $t ) :
 					$why = self::type_refused( $t );
 					?>
-					<?php if ( $why && $type === $t ) : ?>
-						<?php // Un radio desactivado no se envía: sin esto, el snippet se guardaría con el otro tipo. ?>
-						<input type="hidden" name="type" value="<?php echo esc_attr( $t ); ?>">
-					<?php endif; ?>
 					<label class="dxf-choice<?php echo $why ? ' is-disabled' : ''; ?>">
 						<input type="radio" name="type" value="<?php echo esc_attr( $t ); ?>" <?php checked( $type, $t ); ?> <?php disabled( (bool) $why ); ?>>
 						<?php echo self::type_tile( $t ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
