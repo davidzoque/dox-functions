@@ -9,6 +9,13 @@ class Dox_Functions_Runner {
 
 	public function run_snippets() {
 
+		// Hard stop from wp-config.php, checked before anything else. It is the
+		// way back when a snippet breaks wp-login.php: the URL switch below needs
+		// a logged-in administrator, and this one needs no session at all.
+		if ( Dox_Functions::safe_mode_forced() ) {
+			return;
+		}
+
 		// Safe mode RECOVERY switch: ?dox_safe_mode=1 (admin only). It stays usable
 		// by typing the URL by hand, so an administrator can recover a site that a
 		// snippet broke: that request skips every snippet and shows a confirmation

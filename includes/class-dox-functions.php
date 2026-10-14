@@ -7,15 +7,16 @@ class Dox_Functions {
 	const OPT_SAFEMODE     = 'dox_functions_safe_mode';
 	const OPT_DB_VERSION   = 'dox_functions_db_version';
 	const OPT_ERROR_NOTICE = 'dox_functions_error_notice';
-	const CACHE_KEY        = 'dox_functions_active_cache';
-	const CACHE_TTL        = HOUR_IN_SECONDS * 12;
+	// Hasta la 1.2.3 los snippets activos se guardaban en este transient y el
+	// runner ejecutaba lo que hubiera ahí. Ya no se usa: maybe_upgrade() lo borra.
+	const LEGACY_CACHE_KEY = 'dox_functions_active_cache';
 
 	// Bump when the CREATE TABLE below changes. Plugin updates do NOT fire the
 	// activation hook, so maybe_upgrade() compares this against a stored option
 	// on every load and runs dbDelta only when they differ. On multisite this
 	// also creates the per-site table the first time a subsite loads the
 	// plugin (network activation only creates the main site's table).
-	const DB_VERSION = '2';
+	const DB_VERSION = '3';
 
 	const SCOPES = array( 'everywhere', 'admin', 'frontend', 'once' );
 
@@ -44,7 +45,17 @@ class Dox_Functions {
 			return;
 		}
 		self::create_table();
+		delete_transient( self::LEGACY_CACHE_KEY );
 		update_option( self::OPT_DB_VERSION, self::DB_VERSION );
+	}
+
+	/**
+	 * Emergency switch from wp-config.php: define( 'DOX_FUNCTIONS_SAFE_MODE', true ).
+	 * Works even when a snippet broke the login screen, because it needs no
+	 * session and no database write.
+	 */
+	public static function safe_mode_forced() {
+		return defined( 'DOX_FUNCTIONS_SAFE_MODE' ) && DOX_FUNCTIONS_SAFE_MODE;
 	}
 
 	public static function create_table() {
@@ -84,23 +95,14 @@ class Dox_Functions {
 	}
 
 	public static function get_snippets( $only_active = false ) {
-		// Cache only the hot path (active snippets used on every front-end request).
-		if ( $only_active ) {
-			$cached = get_transient( self::CACHE_KEY );
-			if ( false !== $cached ) return $cached;
-		}
-
+		// No cache on purpose: the runner eval()s whatever this returns, so it
+		// must come from the snippets table itself. A copy in wp_options (a
+		// transient) would turn any "write an arbitrary option" bug in another
+		// plugin into PHP execution. The query is one indexed lookup.
 		global $wpdb;
 		$table = self::table_name();
 		$where = $only_active ? 'WHERE is_active = 1' : '';
-		$rows  = $wpdb->get_results( "SELECT * FROM $table $where ORDER BY priority ASC, id ASC" );
-
-		if ( $only_active ) set_transient( self::CACHE_KEY, $rows, self::CACHE_TTL );
-		return $rows;
-	}
-
-	public static function flush_cache() {
-		delete_transient( self::CACHE_KEY );
+		return $wpdb->get_results( "SELECT * FROM $table $where ORDER BY priority ASC, id ASC" );
 	}
 
 	public static function get_snippet( $id ) {
@@ -127,18 +129,15 @@ class Dox_Functions {
 
 		if ( $id > 0 ) {
 			$wpdb->update( $table, $row, array( 'id' => $id ) );
-			self::flush_cache();
 			return $id;
 		}
 		$wpdb->insert( $table, $row );
-		self::flush_cache();
 		return (int) $wpdb->insert_id;
 	}
 
 	public static function delete_snippet( $id ) {
 		global $wpdb;
 		$wpdb->delete( self::table_name(), array( 'id' => (int) $id ) );
-		self::flush_cache();
 	}
 
 	public static function set_active( $id, $active ) {
@@ -151,7 +150,6 @@ class Dox_Functions {
 			$active ? 1 : 0,
 			(int) $id
 		) );
-		self::flush_cache();
 	}
 
 	/**
@@ -170,7 +168,6 @@ class Dox_Functions {
 			current_time( 'mysql' ),
 			(int) $id
 		) );
-		self::flush_cache();
 
 		if ( $notify ) {
 			update_option( self::OPT_ERROR_NOTICE, array(
@@ -193,7 +190,6 @@ class Dox_Functions {
 			"UPDATE $table SET is_active = 0, updated_at = updated_at WHERE id = %d AND is_active = 1",
 			(int) $id
 		) );
-		self::flush_cache();
 		return (bool) $claimed;
 	}
 

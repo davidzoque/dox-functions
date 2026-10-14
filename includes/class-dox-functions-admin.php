@@ -5,7 +5,6 @@ class Dox_Functions_Admin {
 
 	const SLUG  = 'dox-functions';
 	const CAP   = 'manage_options';
-	const NONCE = 'dox_functions_nonce';
 
 	// Per-user transient that repopulates the editor after a failed save, so a
 	// syntax error never costs the user the code they just wrote.
@@ -47,6 +46,16 @@ class Dox_Functions_Admin {
 			return is_super_admin();
 		}
 		return current_user_can( self::CAP );
+	}
+
+	/**
+	 * One nonce per action, with the snippet id inside when there is one
+	 * (dox_functions_delete_12), so the nonce the editor's JS holds to check
+	 * syntax can't also delete or export, and a delete link only works for
+	 * its own row.
+	 */
+	public static function nonce_action( $action, $id = 0 ) {
+		return 'dox_functions_' . $action . ( $id ? '_' . (int) $id : '' );
 	}
 
 	public function __construct() {
@@ -137,7 +146,7 @@ class Dox_Functions_Admin {
 		wp_enqueue_script( 'dox-functions-admin', DOX_FUNCTIONS_URL . 'assets/admin.js', array( 'code-editor' ), DOX_FUNCTIONS_VERSION, true );
 		wp_localize_script( 'dox-functions-admin', 'DoxFunctions', array(
 			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-			'nonce'   => wp_create_nonce( self::NONCE ),
+			'nonce'   => wp_create_nonce( self::nonce_action( 'validate' ) ),
 			'i18n'    => array(
 				'validating'    => dox_t( 'validating' ),
 				'request_error' => dox_t( 'request_error' ),
@@ -163,8 +172,10 @@ class Dox_Functions_Admin {
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 		if ( $screen && self::is_our_screen( $screen->id ) ) return;
 
-		if ( get_option( Dox_Functions::OPT_SAFEMODE ) ) {
-			$off_url = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_safemode_off' ), self::NONCE );
+		if ( Dox_Functions::safe_mode_forced() ) {
+			echo '<div class="notice notice-warning"><p><strong>' . esc_html( dox_t( 'safe_mode_forced' ) ) . '</strong></p></div>';
+		} elseif ( get_option( Dox_Functions::OPT_SAFEMODE ) ) {
+			$off_url = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_safemode_off' ), self::nonce_action( 'safemode_off' ) );
 			echo '<div class="notice notice-warning"><p><strong>'
 				. esc_html( dox_t( 'safe_mode_global' ) ) . '</strong> '
 				. '<a href="' . esc_url( $off_url ) . '">' . esc_html( dox_t( 'safe_mode_off' ) ) . '</a>'
@@ -255,7 +266,8 @@ class Dox_Functions_Admin {
 	}
 
 	private function render_header() {
-		$safe = (bool) get_option( Dox_Functions::OPT_SAFEMODE );
+		$forced = Dox_Functions::safe_mode_forced();
+		$safe   = (bool) get_option( Dox_Functions::OPT_SAFEMODE );
 		?>
 		<div class="dox-card dox-header">
 			<div class="dox-brand">
@@ -263,13 +275,15 @@ class Dox_Functions_Admin {
 				<span class="dox-pill"><?php echo esc_html( dox_t( 'pill' ) ); ?></span>
 			</div>
 			<div class="dox-header-actions">
-				<?php if ( $safe ) : ?>
-					<a class="dox-btn dox-btn-ghost" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_safemode_off' ), self::NONCE ) ); ?>"><?php echo esc_html( dox_t( 'safe_mode_off' ) ); ?></a>
+				<?php if ( $safe && ! $forced ) : ?>
+					<a class="dox-btn dox-btn-ghost" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_safemode_off' ), self::nonce_action( 'safemode_off' ) ) ); ?>"><?php echo esc_html( dox_t( 'safe_mode_off' ) ); ?></a>
 				<?php endif; ?>
 				<a class="dox-btn dox-btn-primary" href="<?php echo esc_url( self::page_url( array( 'action' => 'new' ) ) ); ?>"><?php echo esc_html( dox_t( 'new_function' ) ); ?></a>
 			</div>
 		</div>
-		<?php if ( $safe ) : ?>
+		<?php if ( $forced ) : ?>
+			<div class="dox-notice"><?php echo esc_html( dox_t( 'safe_mode_forced' ) ); ?></div>
+		<?php elseif ( $safe ) : ?>
 			<div class="dox-notice"><?php echo esc_html( dox_t( 'safe_mode_active' ) ); ?></div>
 		<?php endif;
 	}
@@ -296,9 +310,9 @@ class Dox_Functions_Admin {
 					<p><?php echo esc_html( dox_t( 'list_intro' ) ); ?></p>
 				</div>
 				<div class="dox-list-tools">
-					<a class="dox-btn dox-btn-ghost" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_export' ), self::NONCE ) ); ?>"><?php echo esc_html( dox_t( 'export_json' ) ); ?></a>
+					<a class="dox-btn dox-btn-ghost" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_export' ), self::nonce_action( 'export' ) ) ); ?>"><?php echo esc_html( dox_t( 'export_json' ) ); ?></a>
 					<form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="dox-import-form">
-						<?php wp_nonce_field( self::NONCE ); ?>
+						<?php wp_nonce_field( self::nonce_action( 'import' ) ); ?>
 						<input type="hidden" name="action" value="dox_functions_import">
 						<label class="dox-btn dox-btn-ghost dox-file-label" title="<?php echo esc_attr( dox_t( 'import_note' ) ); ?>">
 							<?php echo esc_html( dox_t( 'import_json' ) ); ?>
@@ -328,10 +342,11 @@ class Dox_Functions_Admin {
 						</thead>
 						<tbody>
 						<?php foreach ( $snippets as $s ) :
-							$toggle_url    = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_toggle&id=' . $s->id ), self::NONCE );
+							$toggle_nonce  = wp_create_nonce( self::nonce_action( 'toggle', $s->id ) );
+							$toggle_url    = add_query_arg( '_wpnonce', $toggle_nonce, admin_url( 'admin-post.php?action=dox_functions_toggle&id=' . $s->id ) );
 							$edit_url      = self::page_url( array( 'action' => 'edit', 'id' => $s->id ) );
-							$duplicate_url = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_duplicate&id=' . $s->id ), self::NONCE );
-							$delete_url    = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_delete&id=' . $s->id ), self::NONCE );
+							$duplicate_url = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_duplicate&id=' . $s->id ), self::nonce_action( 'duplicate', $s->id ) );
+							$delete_url    = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_delete&id=' . $s->id ), self::nonce_action( 'delete', $s->id ) );
 							$row_title     = $s->title ?: dox_t( 'no_title' );
 							?>
 							<tr>
@@ -341,7 +356,8 @@ class Dox_Functions_Admin {
 										role="switch"
 										aria-checked="<?php echo $s->is_active ? 'true' : 'false'; ?>"
 										aria-label="<?php echo esc_attr( $row_title ); ?>"
-										data-id="<?php echo (int) $s->id; ?>">
+										data-id="<?php echo (int) $s->id; ?>"
+										data-nonce="<?php echo esc_attr( $toggle_nonce ); ?>">
 										<span class="dox-switch-knob"></span>
 									</a>
 								</td>
@@ -392,7 +408,7 @@ class Dox_Functions_Admin {
 		$date_format = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="dox-card dox-editor">
-			<?php wp_nonce_field( self::NONCE ); ?>
+			<?php wp_nonce_field( self::nonce_action( 'save', $id ) ); ?>
 			<input type="hidden" name="action" value="dox_functions_save">
 			<input type="hidden" name="id" value="<?php echo (int) $id; ?>">
 
@@ -471,9 +487,8 @@ class Dox_Functions_Admin {
 
 	public function handle_save() {
 		if ( ! self::user_can_manage() ) wp_die( esc_html( dox_t( 'unauthorized' ) ) );
-		check_admin_referer( self::NONCE );
-
 		$id = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
+		check_admin_referer( self::nonce_action( 'save', $id ) );
 
 		// The snippet body is PHP source: it cannot be "sanitised" without
 		// destroying it — storing and running it IS the plugin's purpose. It is
@@ -530,16 +545,17 @@ class Dox_Functions_Admin {
 
 	public function handle_delete() {
 		if ( ! self::user_can_manage() ) wp_die( esc_html( dox_t( 'unauthorized' ) ) );
-		check_admin_referer( self::NONCE );
-		Dox_Functions::delete_snippet( (int) ( $_GET['id'] ?? 0 ) );
+		$id = (int) ( $_GET['id'] ?? 0 );
+		check_admin_referer( self::nonce_action( 'delete', $id ) );
+		Dox_Functions::delete_snippet( $id );
 		wp_safe_redirect( self::page_url() );
 		exit;
 	}
 
 	public function handle_toggle() {
 		if ( ! self::user_can_manage() ) wp_die( esc_html( dox_t( 'unauthorized' ) ) );
-		check_admin_referer( self::NONCE );
 		$id = (int) ( $_GET['id'] ?? 0 );
+		check_admin_referer( self::nonce_action( 'toggle', $id ) );
 		$s  = Dox_Functions::get_snippet( $id );
 		if ( $s ) Dox_Functions::set_active( $id, ! $s->is_active );
 		wp_safe_redirect( self::page_url() );
@@ -548,9 +564,10 @@ class Dox_Functions_Admin {
 
 	public function handle_duplicate() {
 		if ( ! self::user_can_manage() ) wp_die( esc_html( dox_t( 'unauthorized' ) ) );
-		check_admin_referer( self::NONCE );
+		$id = (int) ( $_GET['id'] ?? 0 );
+		check_admin_referer( self::nonce_action( 'duplicate', $id ) );
 
-		$s = Dox_Functions::get_snippet( (int) ( $_GET['id'] ?? 0 ) );
+		$s = Dox_Functions::get_snippet( $id );
 		if ( ! $s ) {
 			wp_safe_redirect( self::page_url() );
 			exit;
@@ -571,7 +588,7 @@ class Dox_Functions_Admin {
 
 	public function handle_export() {
 		if ( ! self::user_can_manage() ) wp_die( esc_html( dox_t( 'unauthorized' ) ) );
-		check_admin_referer( self::NONCE );
+		check_admin_referer( self::nonce_action( 'export' ) );
 
 		$snippets = Dox_Functions::get_snippets();
 		$items    = array();
@@ -602,7 +619,7 @@ class Dox_Functions_Admin {
 
 	public function handle_import() {
 		if ( ! self::user_can_manage() ) wp_die( esc_html( dox_t( 'unauthorized' ) ) );
-		check_admin_referer( self::NONCE );
+		check_admin_referer( self::nonce_action( 'import' ) );
 
 		$file = $_FILES['import_file'] ?? null;
 		if ( ! $file || empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] )
@@ -630,18 +647,18 @@ class Dox_Functions_Admin {
 		$count = 0;
 		foreach ( array_slice( $items, 0, self::IMPORT_MAX_ITEMS ) as $item ) {
 			if ( ! is_array( $item ) ) continue;
-			$code = (string) ( $item['code'] ?? '' );
+			$code = self::import_text( $item, 'code' );
 			if ( '' === trim( $code ) ) continue;
 
 			// Imported snippets NEVER arrive active: they were written for
 			// another site and must be reviewed here before running.
 			// save_snippet() sanitises every field and whitelists the scope.
 			$new_id = Dox_Functions::save_snippet( array(
-				'title'       => (string) ( $item['title'] ?? '' ),
-				'description' => (string) ( $item['description'] ?? '' ),
+				'title'       => self::import_text( $item, 'title' ),
+				'description' => self::import_text( $item, 'description' ),
 				'code'        => $code,
-				'scope'       => (string) ( $item['scope'] ?? 'everywhere' ),
-				'priority'    => (int) ( $item['priority'] ?? 10 ),
+				'scope'       => self::import_text( $item, 'scope', 'everywhere' ),
+				'priority'    => is_numeric( $item['priority'] ?? null ) ? (int) $item['priority'] : 10,
 				'is_active'   => 0,
 			) );
 
@@ -658,13 +675,24 @@ class Dox_Functions_Admin {
 		exit;
 	}
 
+	/**
+	 * A field of an imported item as text. A hand-edited JSON can carry an
+	 * array or object where we expect a string; (string) on that throws an
+	 * "Array to string conversion" warning, so anything non-scalar counts as
+	 * missing.
+	 */
+	private static function import_text( $item, $key, $default = '' ) {
+		$value = $item[ $key ] ?? $default;
+		return is_scalar( $value ) ? (string) $value : $default;
+	}
+
 	public function handle_safemode_off() {
 		// Turning safe mode OFF re-authorises stored snippets to execute, so it
 		// needs the same trust as authoring them (super admin on multisite,
 		// blocked under DISALLOW_FILE_*). The emergency ON switch stays broadly
 		// available in the runner because it only ever *stops* execution.
 		if ( ! self::user_can_manage() ) wp_die( esc_html( dox_t( 'unauthorized' ) ) );
-		check_admin_referer( self::NONCE );
+		check_admin_referer( self::nonce_action( 'safemode_off' ) );
 		delete_option( Dox_Functions::OPT_SAFEMODE );
 		wp_safe_redirect( self::page_url() );
 		exit;
@@ -677,7 +705,7 @@ class Dox_Functions_Admin {
 		if ( ! self::user_can_manage() ) {
 			wp_send_json_error( array( 'message' => dox_t( 'unauthorized' ) ), 403 );
 		}
-		check_ajax_referer( self::NONCE, 'nonce' );
+		check_ajax_referer( self::nonce_action( 'validate' ), 'nonce' );
 
 		// PHP source — not sanitisable; same rationale as handle_save(). It is
 		// only parsed (token_get_all), never executed or stored here.
@@ -699,9 +727,9 @@ class Dox_Functions_Admin {
 		if ( ! self::user_can_manage() ) {
 			wp_send_json_error( array( 'message' => dox_t( 'unauthorized' ) ), 403 );
 		}
-		check_ajax_referer( self::NONCE, 'nonce' );
-
 		$id = (int) ( $_POST['id'] ?? 0 );
+		check_ajax_referer( self::nonce_action( 'toggle', $id ), 'nonce' );
+
 		$s  = Dox_Functions::get_snippet( $id );
 		if ( ! $s ) {
 			wp_send_json_error( array( 'message' => dox_t( 'not_found' ) ), 404 );

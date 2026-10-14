@@ -4,7 +4,7 @@ Tags: code snippets, php, functions, doxstudio
 Requires at least: 5.5
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.2.3
+Stable tag: 1.3.0
 License: GPLv2 or later
 
 Administra snippets de PHP personalizados con un panel visual con la marca Dox Studio.
@@ -14,6 +14,7 @@ Dox Functions reemplaza el archivo `functions.php` con un administrador de snipp
 
 * Activa o desactiva snippets con un clic (sin recargar la página).
 * Define ámbito: todo el sitio, solo admin, solo frontend o **ejecutar una vez** (para migraciones y arreglos puntuales: corre en la siguiente carga y se desactiva solo).
+* Ojo con "solo frontend": significa "todo lo que no es el escritorio", así que también corre en la API REST, XML-RPC, el cron de WordPress y la pantalla de acceso (`wp-login.php`). "Solo admin" corre únicamente en el escritorio con sesión iniciada (no en admin-ajax ni admin-post).
 * Editor con resaltado de sintaxis PHP, guardado con Ctrl/Cmd+S y botón para validar la sintaxis sin guardar.
 * Si un snippet falla, se desactiva automáticamente para evitar la pantalla blanca, y el error queda **visible** en la lista y en el editor (además de un aviso en el admin).
 * Exporta e importa tus funciones en JSON para reutilizarlas entre sitios. Las funciones importadas llegan siempre desactivadas.
@@ -29,6 +30,12 @@ Si un snippet rompe el sitio:
 * Visita `/wp-admin/?dox_safe_mode=1` (o añade `?dox_safe_mode=1` a cualquier URL del admin) para **detener** la ejecución de todos los snippets. La página carga sin ellos y pide confirmar con el botón "Activar Modo Seguro".
 * Mientras el modo seguro esté activo verás un aviso en todo el panel de administración.
 * Para **reactivar** la ejecución, entra en **Dox Plugins → Dox Functions** y pulsa "Desactivar Modo Seguro" (la reactivación está protegida con nonce y no se hace por URL).
+
+Si el snippet rompe también la pantalla de acceso (`wp-login.php`) y no puedes entrar al admin, añade esta línea a `wp-config.php` (por FTP o el administrador de archivos del hosting), encima de `/* That's all, stop editing! */`:
+
+`define( 'DOX_FUNCTIONS_SAFE_MODE', true );`
+
+Con ella no se ejecuta ningún snippet, sin necesidad de iniciar sesión. Entra, arregla o desactiva el snippet culpable y luego borra la línea. Mientras esté puesta, el panel lo avisa y el botón "Desactivar Modo Seguro" no aparece.
 
 == Errores y auto-desactivación ==
 Cuando un snippet lanza un error al cargarse, el plugin lo desactiva automáticamente, registra el mensaje y te lo muestra en la lista de funciones y en el editor.
@@ -47,6 +54,13 @@ Al desinstalar el plugin, tus funciones **se conservan** en la base de datos (so
 `define( 'DOX_FUNCTIONS_REMOVE_DATA', true );`
 
 == Changelog ==
+
+= 1.3.0 =
+* Seguridad: los snippets activos ya no se guardan en caché en `wp_options` (un transient). El plugin los lee siempre de su propia tabla, así que un fallo de otro plugin que permita escribir opciones ya no basta para ejecutar PHP. La caché antigua se borra sola al actualizar.
+* Nuevo: modo seguro desde `wp-config.php` con `define( 'DOX_FUNCTIONS_SAFE_MODE', true );`. Detiene todos los snippets sin iniciar sesión, para recuperar un sitio en el que un snippet rompió la pantalla de acceso.
+* Seguridad: cada acción (guardar, borrar, activar, duplicar, exportar, importar, validar, desactivar el modo seguro) lleva su propio nonce, con el id del snippet dentro cuando lo hay.
+* Arreglado: importar un JSON con un campo que trae una lista en vez de texto ya no suelta el aviso "Array to string conversion"; ese campo se toma como vacío.
+* Documentación: qué significa exactamente cada ámbito ("solo frontend" también corre en REST, XML-RPC, cron y la pantalla de acceso).
 
 = 1.2.3 =
 * Seguridad: `?dox_safe_mode=1` ya no guarda el modo seguro por sí solo. La página carga sin snippets y pide confirmar con el botón "Activar Modo Seguro", así un enlace puesto en otra web no puede apagarle los snippets a un administrador.

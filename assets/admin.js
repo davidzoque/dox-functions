@@ -7,10 +7,10 @@
 		return (cfg.i18n && cfg.i18n[key]) ? cfg.i18n[key] : key;
 	}
 
-	function ajax(action, params) {
+	function ajax(action, params, nonce) {
 		var body = new URLSearchParams();
 		body.set('action', action);
-		body.set('nonce', cfg.nonce);
+		body.set('nonce', nonce || cfg.nonce);
 		Object.keys(params || {}).forEach(function (k) { body.set(k, params[k]); });
 		return fetch(cfg.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
 			.then(function (r) { return r.json(); });
@@ -125,11 +125,11 @@
 		// nonce'd link (full page load), which also covers no-JS.
 		document.querySelectorAll('a.dox-switch[data-id]').forEach(function (sw) {
 			sw.addEventListener('click', function (e) {
-				if (!cfg.ajaxUrl || !cfg.nonce) return;
+				if (!cfg.ajaxUrl || !sw.dataset.nonce) return;
 				e.preventDefault();
 				if (sw.dataset.busy) return;
 				sw.dataset.busy = '1';
-				ajax('dox_functions_toggle', { id: sw.dataset.id })
+				ajax('dox_functions_toggle', { id: sw.dataset.id }, sw.dataset.nonce)
 					.then(function (res) {
 						if (res && res.success) {
 							var on = !!(res.data && res.data.active);
