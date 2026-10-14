@@ -48,15 +48,13 @@ class Dox_Functions_Runner {
 
 		// Honour the site's code-editing lockdown at EXECUTION time, not just in
 		// the admin UI. When DISALLOW_FILE_MODS / DISALLOW_FILE_EDIT are defined
-		// the owner has declared "no admin-authored code runs here". A snippet
-		// that reached the table anyway — a restored/imported backup, or a DB
-		// write through another plugin's flaw — must NOT be eval()'d, or it
+		// the owner has declared "no admin-authored code runs here". A PHP
+		// snippet that reached the table anyway (a restored/imported backup, or
+		// a DB write through another plugin's flaw) must NOT be eval()'d, or it
 		// becomes persistent remote code execution on a site that explicitly
-		// locked code editing down.
-		if ( ( defined( 'DISALLOW_FILE_MODS' ) && DISALLOW_FILE_MODS )
-			|| ( defined( 'DISALLOW_FILE_EDIT' ) && DISALLOW_FILE_EDIT ) ) {
-			return;
-		}
+		// locked code editing down. HTML snippets run nothing on the server, so
+		// they keep printing; the check lives inside the loop for that reason.
+		$php_locked = Dox_Functions::php_locked();
 
 		// A snippet scoped to "admin" must run only on an AUTHENTICATED dashboard
 		// request — never for the public. is_admin() alone is NOT a safe signal:
@@ -84,6 +82,10 @@ class Dox_Functions_Runner {
 			// escritorio y wp-login.php no llaman a wp_head ni a wp_footer).
 			if ( 'html' === ( $s->type ?? 'php' ) ) {
 				$this->print_html( $s );
+				continue;
+			}
+
+			if ( $php_locked ) {
 				continue;
 			}
 

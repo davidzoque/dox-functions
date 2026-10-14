@@ -208,12 +208,27 @@ class Dox_Functions {
 		return (bool) $claimed;
 	}
 
+	// Minúsculas y sin espacios antes de comparar: un JSON hecho a mano con
+	// "HTML" o " Footer" se importa igual que con "html" y "footer".
 	public static function sanitize_type( $type ) {
+		$type = strtolower( trim( (string) $type ) );
 		return in_array( $type, self::TYPES, true ) ? $type : 'php';
 	}
 
 	public static function sanitize_location( $location ) {
+		$location = strtolower( trim( (string) $location ) );
 		return isset( self::LOCATIONS[ $location ] ) ? $location : 'head';
+	}
+
+	/**
+	 * ¿El sitio tiene bloqueada la edición de código? Con DISALLOW_FILE_EDIT o
+	 * DISALLOW_FILE_MODS no se ejecuta ni se gestiona PHP aquí (sería código
+	 * del administrador ejecutándose en un sitio que lo prohibió). Los snippets
+	 * HTML no ejecutan nada en el servidor, así que siguen funcionando.
+	 */
+	public static function php_locked() {
+		return ( defined( 'DISALLOW_FILE_MODS' ) && DISALLOW_FILE_MODS )
+			|| ( defined( 'DISALLOW_FILE_EDIT' ) && DISALLOW_FILE_EDIT );
 	}
 
 	/**

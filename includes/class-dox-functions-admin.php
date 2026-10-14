@@ -27,25 +27,38 @@ class Dox_Functions_Admin {
 	 *    subsite admins are not trusted to execute PHP. Allowing eval() here
 	 *    for a plain manage_options user is a network-wide privilege
 	 *    escalation (remote code execution) launched from a single subsite.
-	 *  - DISALLOW_FILE_MODS / DISALLOW_FILE_EDIT: when a site has locked down
-	 *    code editing via these constants, honour that intent — no snippet
-	 *    management for anyone, regardless of role.
+	 *  - DISALLOW_FILE_MODS / DISALLOW_FILE_EDIT no longer close the screen
+	 *    (since 1.4.1): they lock PHP only, which type_refused() enforces on
+	 *    every write, while HTML snippets stay manageable.
 	 *
 	 * The bare capability constant (self::CAP) is kept only as the menu
 	 * registration cap; this method is the authoritative gate used by every
-	 * handler and the page renderer.
+	 * handler and the page renderer. What each user may do with each TYPE is
+	 * decided by type_refused().
 	 */
 	public static function user_can_manage() {
-		if ( defined( 'DISALLOW_FILE_MODS' ) && DISALLOW_FILE_MODS ) {
-			return false;
-		}
-		if ( defined( 'DISALLOW_FILE_EDIT' ) && DISALLOW_FILE_EDIT ) {
-			return false;
-		}
 		if ( is_multisite() ) {
 			return is_super_admin();
 		}
 		return current_user_can( self::CAP );
+	}
+
+	/**
+	 * ¿Puede este usuario guardar, importar, duplicar o activar un snippet de
+	 * este tipo? Devuelve '' si puede, o la clave del texto que explica por qué
+	 * no:
+	 *  - HTML se imprime sin filtrar en la web pública, así que pide la misma
+	 *    capacidad que WordPress exige para publicar scripts (unfiltered_html,
+	 *    que DISALLOW_UNFILTERED_HTML quita a todos y que en multisitio solo
+	 *    tienen los Super Admins).
+	 *  - PHP se ejecuta con eval(): con DISALLOW_FILE_EDIT o DISALLOW_FILE_MODS
+	 *    queda bloqueado.
+	 */
+	public static function type_refused( $type ) {
+		if ( 'html' === $type ) {
+			return current_user_can( 'unfiltered_html' ) ? '' : 'html_needs_unfiltered';
+		}
+		return Dox_Functions::php_locked() ? 'php_locked' : '';
 	}
 
 	/**
@@ -369,6 +382,12 @@ class Dox_Functions_Admin {
 		$forced = Dox_Functions::safe_mode_forced();
 		$safe   = (bool) get_option( Dox_Functions::OPT_SAFEMODE );
 		?>
+		<?php if ( Dox_Functions::php_locked() ) : ?>
+			<div class="dxf-strip dxf-strip--warn" role="status">
+				<span class="dxf-strip__icon"><?php echo self::icon( 'lock' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+				<p><strong><?php echo esc_html( dox_t( 'code_locked_title' ) ); ?></strong> <?php echo esc_html( dox_t( 'code_locked_body' ) ); ?></p>
+			</div>
+		<?php endif; ?>
 		<?php if ( $forced ) : ?>
 			<div class="dxf-strip dxf-strip--warn" role="status">
 				<span class="dxf-strip__icon"><?php echo self::icon( 'shield' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
@@ -390,6 +409,11 @@ class Dox_Functions_Admin {
 		// Read-only result flags from import redirects (display only).
 		$imported   = isset( $_GET['imported'] ) ? absint( $_GET['imported'] ) : null;
 		$import_err = ! empty( $_GET['import_err'] );
+		$refused    = isset( $_GET['refused'] ) ? sanitize_key( wp_unslash( $_GET['refused'] ) ) : '';
+		$skipped    = array(
+			'html' => isset( $_GET['skipped_html'] ) ? absint( $_GET['skipped_html'] ) : 0,
+			'php'  => isset( $_GET['skipped_php'] ) ? absint( $_GET['skipped_php'] ) : 0,
+		);
 
 		$count = array( 'all' => count( $snippets ), 'on' => 0, 'off' => 0, 'error' => 0, 'php' => 0, 'html' => 0 );
 		foreach ( $snippets as $s ) {
@@ -400,12 +424,30 @@ class Dox_Functions_Admin {
 
 		$export_url = wp_nonce_url( admin_url( 'admin-post.php?action=dox_functions_export' ), self::nonce_action( 'export' ) );
 		?>
-		<?php if ( null !== $imported && ! $import_err ) : ?>
+		<?php if ( null !== $imported && ! $import_err && ( $imported || ! array_sum( $skipped ) ) ) : ?>
 			<div class="dxf-strip dxf-strip--ok" role="status">
 				<span class="dxf-strip__icon"><?php echo self::icon( 'check' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
 				<p><?php echo esc_html( sprintf( dox_t( 'imported_ok' ), $imported ) ); ?></p>
 			</div>
 		<?php endif; ?>
+		<?php
+		// Lo que se rechazó por tipo: al duplicar o activar (refused) y al
+		// importar (skipped_*), con el motivo de type_refused().
+		$refusals = array();
+		if ( in_array( $refused, array( 'html', 'php' ), true ) ) {
+			$refusals[] = dox_t( self::type_refused( $refused ) ?: ( 'html' === $refused ? 'html_needs_unfiltered' : 'php_locked' ) );
+		}
+		foreach ( $skipped as $type => $n ) {
+			if ( $n ) {
+				$refusals[] = sprintf( dox_t( 'import_skipped' ), $n ) . ' ' . dox_t( 'html' === $type ? 'html_needs_unfiltered' : 'php_locked' );
+			}
+		}
+		foreach ( $refusals as $message ) : ?>
+			<div class="dxf-strip dxf-strip--bad" role="alert">
+				<span class="dxf-strip__icon"><?php echo self::icon( 'lock' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+				<p><?php echo esc_html( $message ); ?></p>
+			</div>
+		<?php endforeach; ?>
 		<?php if ( $import_err ) : ?>
 			<div class="dxf-strip dxf-strip--bad" role="alert">
 				<span class="dxf-strip__icon"><?php echo self::icon( 'alert' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
@@ -559,13 +601,23 @@ class Dox_Functions_Admin {
 			<h2><?php echo esc_html( dox_t( 'empty_title' ) ); ?></h2>
 			<p><?php echo esc_html( dox_t( 'empty_state' ) ); ?></p>
 			<div class="dxf-start">
-				<?php foreach ( array( 'php', 'html' ) as $type ) : ?>
-					<a class="dxf-start__card" data-type="<?php echo esc_attr( $type ); ?>" href="<?php echo esc_url( self::page_url( array( 'action' => 'new', 'type' => $type ) ) ); ?>">
-						<?php echo self::type_tile( $type ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-						<strong><?php echo esc_html( dox_t( 'type_' . $type ) ); ?></strong>
-						<span><?php echo esc_html( dox_t( 'type_' . $type . '_desc' ) ); ?></span>
-						<em><?php echo esc_html( dox_t( 'type_' . $type . '_examples' ) ); ?></em>
-					</a>
+				<?php foreach ( array( 'php', 'html' ) as $type ) :
+					$why = self::type_refused( $type );
+					?>
+					<?php if ( $why ) : ?>
+						<div class="dxf-start__card is-disabled" data-type="<?php echo esc_attr( $type ); ?>" aria-disabled="true">
+							<?php echo self::type_tile( $type ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+							<strong><?php echo esc_html( dox_t( 'type_' . $type ) ); ?></strong>
+							<span class="dxf-refused"><?php echo esc_html( dox_t( $why ) ); ?></span>
+						</div>
+					<?php else : ?>
+						<a class="dxf-start__card" data-type="<?php echo esc_attr( $type ); ?>" href="<?php echo esc_url( self::page_url( array( 'action' => 'new', 'type' => $type ) ) ); ?>">
+							<?php echo self::type_tile( $type ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+							<strong><?php echo esc_html( dox_t( 'type_' . $type ) ); ?></strong>
+							<span><?php echo esc_html( dox_t( 'type_' . $type . '_desc' ) ); ?></span>
+							<em><?php echo esc_html( dox_t( 'type_' . $type . '_examples' ) ); ?></em>
+						</a>
+					<?php endif; ?>
 				<?php endforeach; ?>
 			</div>
 			<form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="dxf-import dxf-empty__import">
@@ -606,6 +658,12 @@ class Dox_Functions_Admin {
 
 		// Un snippet nuevo puede llegar con ?type=html desde la lista vacía.
 		$new_type = isset( $_GET['type'] ) ? Dox_Functions::sanitize_type( sanitize_key( wp_unslash( $_GET['type'] ) ) ) : 'php'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		// Un snippet nuevo no arranca en un tipo que este usuario no puede usar.
+		if ( ! $snippet && self::type_refused( $new_type ) ) {
+			$other = 'php' === $new_type ? 'html' : 'php';
+			if ( ! self::type_refused( $other ) ) $new_type = $other;
+		}
 
 		$type        = $src ? Dox_Functions::sanitize_type( (string) ( $src['type'] ?? 'php' ) ) : ( $snippet ? Dox_Functions::sanitize_type( $snippet->type ?? 'php' ) : $new_type );
 		$title       = $src ? (string) ( $src['title'] ?? '' )       : ( $snippet->title ?? '' );
@@ -669,13 +727,23 @@ class Dox_Functions_Admin {
 
 			<fieldset class="dxf-types">
 				<legend class="screen-reader-text"><?php echo esc_html( dox_t( 'type' ) ); ?></legend>
-				<?php foreach ( array( 'php', 'html' ) as $t ) : ?>
-					<label class="dxf-choice">
-						<input type="radio" name="type" value="<?php echo esc_attr( $t ); ?>" <?php checked( $type, $t ); ?>>
+				<?php foreach ( array( 'php', 'html' ) as $t ) :
+					$why = self::type_refused( $t );
+					?>
+					<?php if ( $why && $type === $t ) : ?>
+						<?php // Un radio desactivado no se envía: sin esto, el snippet se guardaría con el otro tipo. ?>
+						<input type="hidden" name="type" value="<?php echo esc_attr( $t ); ?>">
+					<?php endif; ?>
+					<label class="dxf-choice<?php echo $why ? ' is-disabled' : ''; ?>">
+						<input type="radio" name="type" value="<?php echo esc_attr( $t ); ?>" <?php checked( $type, $t ); ?> <?php disabled( (bool) $why ); ?>>
 						<?php echo self::type_tile( $t ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 						<span class="dxf-choice__text">
 							<strong><?php echo esc_html( dox_t( 'type_' . $t ) ); ?></strong>
-							<span><?php echo esc_html( dox_t( 'type_' . $t . '_desc' ) ); ?></span>
+							<?php if ( $why ) : ?>
+								<span class="dxf-refused"><?php echo esc_html( dox_t( $why ) ); ?></span>
+							<?php else : ?>
+								<span><?php echo esc_html( dox_t( 'type_' . $t . '_desc' ) ); ?></span>
+							<?php endif; ?>
 						</span>
 						<span class="dxf-choice__check"><?php echo self::icon( 'check' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
 					</label>
@@ -753,9 +821,10 @@ class Dox_Functions_Admin {
 		// destroying it — storing and running it IS the plugin's purpose. It is
 		// unslashed here, checked for parse errors by validate_syntax() below
 		// before it is ever stored, and only an author who passes
-		// user_can_manage() (a Super Admin on multisite; blocked entirely under
-		// DISALLOW_FILE_MODS / DISALLOW_FILE_EDIT) plus a valid nonce can reach
-		// this line. The InputNotSanitized sniff can't follow that, so it is
+		// user_can_manage() (a Super Admin on multisite) plus a valid nonce can
+		// reach this line; type_refused() then blocks PHP under
+		// DISALLOW_FILE_MODS / DISALLOW_FILE_EDIT and HTML without
+		// unfiltered_html. The InputNotSanitized sniff can't follow that, so it is
 		// suppressed here deliberately.
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$code = wp_unslash( $_POST['code'] ?? '' );
@@ -779,7 +848,8 @@ class Dox_Functions_Admin {
 		// On failure, stash everything the user submitted so the editor
 		// repopulates — the typed code must survive the redirect, not just the
 		// error message.
-		$check = Dox_Functions::validate_snippet( $data['type'], $code );
+		$why   = self::type_refused( $data['type'] );
+		$check = $why ? dox_t( $why ) : Dox_Functions::validate_snippet( $data['type'], $code );
 		if ( true !== $check ) {
 			set_transient(
 				self::STASH_KEY . get_current_user_id(),
@@ -819,7 +889,15 @@ class Dox_Functions_Admin {
 		$id = (int) ( $_GET['id'] ?? 0 );
 		check_admin_referer( self::nonce_action( 'toggle', $id ) );
 		$s  = Dox_Functions::get_snippet( $id );
-		if ( $s ) Dox_Functions::set_active( $id, ! $s->is_active );
+		if ( $s ) {
+			// Apagar siempre se puede; encender, solo un tipo permitido.
+			$type = Dox_Functions::sanitize_type( $s->type ?? 'php' );
+			if ( ! $s->is_active && self::type_refused( $type ) ) {
+				wp_safe_redirect( self::page_url( array( 'refused' => $type ) ) );
+				exit;
+			}
+			Dox_Functions::set_active( $id, ! $s->is_active );
+		}
 		wp_safe_redirect( self::page_url() );
 		exit;
 	}
@@ -835,11 +913,17 @@ class Dox_Functions_Admin {
 			exit;
 		}
 
+		$type = Dox_Functions::sanitize_type( $s->type ?? 'php' );
+		if ( self::type_refused( $type ) ) {
+			wp_safe_redirect( self::page_url( array( 'refused' => $type ) ) );
+			exit;
+		}
+
 		$new_id = Dox_Functions::save_snippet( array(
 			'title'       => mb_substr( (string) $s->title, 0, 180 ) . dox_t( 'copy_suffix' ),
 			'description' => $s->description,
 			'code'        => $s->code,
-			'type'        => $s->type ?? 'php',
+			'type'        => $type,
 			'scope'       => $s->scope,
 			'location'    => $s->location ?? 'head',
 			'priority'    => $s->priority,
@@ -910,11 +994,20 @@ class Dox_Functions_Admin {
 			exit;
 		}
 
-		$count = 0;
+		$count   = 0;
+		$skipped = array( 'html' => 0, 'php' => 0 );
 		foreach ( array_slice( $items, 0, self::IMPORT_MAX_ITEMS ) as $item ) {
 			if ( ! is_array( $item ) ) continue;
 			$code = self::import_text( $item, 'code' );
 			if ( '' === trim( $code ) ) continue;
+
+			// Un tipo que este usuario o este sitio no permite no entra, ni
+			// siquiera desactivado: se cuenta y se avisa en la lista.
+			$type = Dox_Functions::sanitize_type( self::import_text( $item, 'type', 'php' ) );
+			if ( self::type_refused( $type ) ) {
+				$skipped[ $type ]++;
+				continue;
+			}
 
 			// Imported snippets NEVER arrive active: they were written for
 			// another site and must be reviewed here before running.
@@ -923,7 +1016,7 @@ class Dox_Functions_Admin {
 				'title'       => self::import_text( $item, 'title' ),
 				'description' => self::import_text( $item, 'description' ),
 				'code'        => $code,
-				'type'        => self::import_text( $item, 'type', 'php' ),
+				'type'        => $type,
 				'scope'       => self::import_text( $item, 'scope', 'everywhere' ),
 				'location'    => self::import_text( $item, 'location', 'head' ),
 				'priority'    => is_numeric( $item['priority'] ?? null ) ? (int) $item['priority'] : 10,
@@ -932,14 +1025,18 @@ class Dox_Functions_Admin {
 
 			// Flag invalid code visibly (badge in the list) without spamming
 			// the site-wide notice — the importer is looking at the list.
-			$check = Dox_Functions::validate_snippet( Dox_Functions::sanitize_type( self::import_text( $item, 'type', 'php' ) ), $code );
+			$check = Dox_Functions::validate_snippet( $type, $code );
 			if ( true !== $check ) {
 				Dox_Functions::record_error( $new_id, $check, false );
 			}
 			$count++;
 		}
 
-		wp_safe_redirect( self::page_url( array( 'imported' => $count ) ) );
+		wp_safe_redirect( self::page_url( array_filter( array(
+			'imported'     => $count,
+			'skipped_html' => $skipped['html'],
+			'skipped_php'  => $skipped['php'],
+		) ) + array( 'imported' => 0 ) ) );
 		exit;
 	}
 
@@ -956,8 +1053,8 @@ class Dox_Functions_Admin {
 
 	public function handle_safemode_off() {
 		// Turning safe mode OFF re-authorises stored snippets to execute, so it
-		// needs the same trust as authoring them (super admin on multisite,
-		// blocked under DISALLOW_FILE_*). The emergency ON switch stays broadly
+		// needs the same trust as authoring them (super admin on multisite;
+		// under DISALLOW_FILE_* PHP stays off anyway). The emergency ON switch stays broadly
 		// available in the runner because it only ever *stops* execution.
 		if ( ! self::user_can_manage() ) wp_die( esc_html( dox_t( 'unauthorized' ) ) );
 		check_admin_referer( self::nonce_action( 'safemode_off' ) );
@@ -1005,6 +1102,11 @@ class Dox_Functions_Admin {
 		}
 
 		$new = ! $s->is_active;
+		$why = $new ? self::type_refused( Dox_Functions::sanitize_type( $s->type ?? 'php' ) ) : '';
+		if ( $why ) {
+			// El JS cae al enlace normal, que vuelve a la lista con el motivo.
+			wp_send_json_error( array( 'message' => dox_t( $why ) ), 403 );
+		}
 		Dox_Functions::set_active( $id, $new );
 		wp_send_json_success( array( 'active' => (bool) $new ) );
 	}

@@ -207,7 +207,9 @@ html, body.wp-admin, #wpcontent { background: #f6f7f9; }
 .dxf-start__card { flex: 1 1 280px; max-width: 360px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 20px;
 	text-align: left; text-decoration: none; color: var(--dxf-text); background: var(--dxf-surface); border: 1px solid var(--dxf-line); border-radius: 14px;
 	transition: transform .4s var(--dxf-ease), box-shadow .4s var(--dxf-ease), border-color .2s; }
-.dxf-start__card:hover { transform: translateY(-3px); box-shadow: var(--dxf-shadow); border-color: color-mix(in srgb, var(--c) 45%, var(--dxf-line)); color: var(--dxf-text); }
+.dxf-start__card.is-disabled { cursor: not-allowed; background: var(--dxf-surface-2); }
+.dxf-start__card.is-disabled .dxf-type, .dxf-start__card.is-disabled strong { opacity: .55; }
+.dxf-start__card:not(.is-disabled):hover { transform: translateY(-3px); box-shadow: var(--dxf-shadow); border-color: color-mix(in srgb, var(--c) 45%, var(--dxf-line)); color: var(--dxf-text); }
 .dxf-start__card .dxf-type { width: 44px; height: 44px; border-radius: 12px; margin-bottom: 8px; }
 .dxf-start__card .dxf-type .dxf-i { width: 22px; height: 22px; }
 .dxf-start__card strong { font-size: 16px; font-weight: 700; color: var(--dxf-heading); }
@@ -251,6 +253,14 @@ html, body.wp-admin, #wpcontent { background: #f6f7f9; }
 .dxf-choice:has(input:checked) .dxf-choice__check { background: var(--dxf-accent); border-color: var(--dxf-accent); }
 .dxf-choice:has(input:checked) .dxf-choice__check .dxf-i { opacity: 1; }
 .dxf-choice:has(input:focus-visible) { outline: 2px solid var(--dxf-accent-deep); outline-offset: 2px; }
+/* Tipo que este usuario o este sitio no permite: se ve, pero no se elige, y dice por qué. */
+.dxf-choice.is-disabled { cursor: not-allowed; background: var(--dxf-surface-2); box-shadow: none; }
+.dxf-choice.is-disabled:hover { border-color: var(--dxf-line); }
+.dxf-choice.is-disabled .dxf-type,
+.dxf-choice.is-disabled .dxf-choice__text strong { opacity: .55; }
+.dxf-choice.is-disabled:has(input:checked) { border-color: var(--dxf-warn-line); box-shadow: none; }
+.dxf-choice.is-disabled:has(input:checked) .dxf-choice__check { background: #a1a1aa; border-color: #a1a1aa; }
+.dxf-refused { font-size: 12.5px; line-height: 1.45; color: var(--dxf-warn) !important; }
 
 .dxf-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
 .dxf-main { padding: 20px; }

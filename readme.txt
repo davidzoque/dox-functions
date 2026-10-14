@@ -4,7 +4,7 @@ Tags: code snippets, php, functions, doxstudio
 Requires at least: 5.5
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPLv2 or later
 
 Administra funciones de PHP y scripts del sitio (píxeles, Analytics) con un panel visual con la marca Dox Studio.
@@ -47,8 +47,15 @@ Ten en cuenta la limitación de cualquier gestor de snippets: solo se capturan l
 == Exportar e importar ==
 Desde la lista de funciones puedes exportar todas tus funciones a un archivo JSON e importarlas en otro sitio. Por seguridad, las funciones importadas llegan **siempre desactivadas**: revísalas y actívalas una a una.
 
+== Seguridad ==
+Quién puede hacer qué depende del tipo de snippet:
+
+* **PHP** se ejecuta con `eval()`. Si el sitio define `DISALLOW_FILE_EDIT` o `DISALLOW_FILE_MODS`, los snippets PHP no se ejecutan y no se pueden guardar, importar, duplicar ni activar: la pantalla avisa arriba y la tarjeta del tipo PHP sale desactivada. Los que ya estaban guardados se ven y se pueden borrar.
+* **HTML, JS o CSS** se imprime sin filtrar en la web pública, así que pide el permiso `unfiltered_html`, el mismo que WordPress exige para publicar scripts en una entrada. Sin él (por ejemplo con `DISALLOW_UNFILTERED_HTML`), los snippets HTML no se pueden guardar, importar, duplicar ni activar, y la tarjeta del tipo HTML sale desactivada con el motivo. Las constantes `DISALLOW_FILE_*` no los paran: no ejecutan nada en el servidor.
+* Apagar cualquier snippet siempre se puede. El modo seguro para los dos tipos.
+
 == Multisitio ==
-Como los snippets se ejecutan con `eval()`, en una red multisitio solo los **Super Admins** de red pueden crear, editar, activar o ejecutar snippets, igual que WordPress reserva la edición de código a los Super Admins. Además, si el sitio define `DISALLOW_FILE_MODS` o `DISALLOW_FILE_EDIT`, la gestión de snippets queda deshabilitada. Cada sitio de la red tiene su propia lista de funciones (la tabla se crea automáticamente la primera vez que se usa en cada sitio).
+Como los snippets PHP se ejecutan con `eval()` y los HTML se imprimen sin filtrar, en una red multisitio solo los **Super Admins** de red pueden crear, editar, activar o ejecutar snippets de cualquiera de los dos tipos, igual que WordPress reserva la edición de código y `unfiltered_html` a los Super Admins. Si el sitio define `DISALLOW_FILE_MODS` o `DISALLOW_FILE_EDIT`, se bloquea solo el PHP, como en un sitio normal (ver Seguridad). Cada sitio de la red tiene su propia lista de funciones (la tabla se crea automáticamente la primera vez que se usa en cada sitio).
 
 == Desinstalación ==
 Al desinstalar el plugin, tus funciones **se conservan** en la base de datos (son código de tu sitio; una desinstalación accidental no debe destruirlas). Solo se limpian las opciones internas. Si quieres un borrado completo, define en `wp-config.php` antes de desinstalar:
@@ -56,6 +63,12 @@ Al desinstalar el plugin, tus funciones **se conservan** en la base de datos (so
 `define( 'DOX_FUNCTIONS_REMOVE_DATA', true );`
 
 == Changelog ==
+
+= 1.4.1 =
+* Seguridad: los snippets HTML piden el permiso `unfiltered_html`, como cualquier script publicado en WordPress. Sin él (por ejemplo con `DISALLOW_UNFILTERED_HTML`) no se pueden guardar, importar, duplicar ni activar, y el editor enseña la tarjeta del tipo HTML desactivada con el motivo.
+* Cambio: `DISALLOW_FILE_EDIT` y `DISALLOW_FILE_MODS` ya no cierran la pantalla entera. Siguen bloqueando el PHP (no se ejecuta ni se puede guardar, importar, duplicar ni activar), pero los snippets HTML se gestionan y se imprimen con normalidad. Una franja arriba avisa del bloqueo.
+* Arreglado: un JSON con el tipo o la ubicación en mayúsculas o con espacios (`"HTML"`, `" Footer"`) se importa bien; antes caía a PHP y a la cabecera.
+* Al importar, lo que el sitio o el usuario no permite no entra y la lista dice cuántos quedaron fuera y por qué.
 
 = 1.4.0 =
 * Nuevo: tipo de snippet **HTML, JS o CSS**. Se pega el código tal cual (`<script>`, `<style>`, `<meta>`) y se elige si sale en la cabecera, al inicio del body o en el pie. Sirve para pasar a Dox Functions lo que hasta ahora hacía falta WPCode o el campo de cabecera del tema. No pasa por `eval()`: se imprime en la web pública y nada más.

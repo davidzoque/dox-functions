@@ -3,7 +3,7 @@
  * Plugin Name: Dox Functions
  * Plugin URI:  https://doxstudio.com
  * Description: Administra funciones de PHP y scripts del sitio (píxeles, Analytics, verificaciones) con un panel visual. Activa o desactiva cada uno con un clic, sin tocar functions.php.
- * Version:     1.4.0
+ * Version:     1.4.1
  * Author:      Dox Studio
  * Author URI:  https://doxstudio.com
  * License:     GPL-2.0+
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'DOX_FUNCTIONS_VERSION', '1.4.0' );
+define( 'DOX_FUNCTIONS_VERSION', '1.4.1' );
 define( 'DOX_FUNCTIONS_FILE', __FILE__ );
 define( 'DOX_FUNCTIONS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DOX_FUNCTIONS_URL', plugin_dir_url( __FILE__ ) );

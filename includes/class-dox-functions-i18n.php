@@ -130,6 +130,11 @@ class Dox_Functions_I18n {
 			'safe_strip_title'     => 'Safe mode is on.',
 			'safe_strip_body'      => 'No function or script is running, even the active ones.',
 			'safe_strip_forced'    => 'It is on from wp-config.php (DOX_FUNCTIONS_SAFE_MODE): remove that line to run them again.',
+			'html_needs_unfiltered'=> 'This site does not let your user publish scripts (DISALLOW_UNFILTERED_HTML, or the unfiltered_html permission is missing), so HTML snippets can\'t be saved, imported or turned on.',
+			'php_locked'           => 'This site has code editing locked (DISALLOW_FILE_EDIT or DISALLOW_FILE_MODS): PHP snippets can\'t be saved, imported or turned on, and they don\'t run.',
+			'code_locked_title'    => 'Code editing is locked.',
+			'code_locked_body'     => 'The site defines DISALLOW_FILE_EDIT or DISALLOW_FILE_MODS: PHP snippets don\'t run and only HTML snippets can be managed here.',
+			'import_skipped'       => '%d were not imported.',
 			'starter_code'         => "// Your PHP code here. Do not include the opening tag.\n",
 		);
 	}
@@ -243,6 +248,11 @@ class Dox_Functions_I18n {
 			'safe_strip_title'     => 'Modo seguro activo.',
 			'safe_strip_body'      => 'No se está ejecutando ninguna función ni script, tampoco los activos.',
 			'safe_strip_forced'    => 'Está encendido desde wp-config.php (DOX_FUNCTIONS_SAFE_MODE): quita esa línea para volver a ejecutarlos.',
+			'html_needs_unfiltered'=> 'Este sitio no permite que tu usuario publique scripts (DISALLOW_UNFILTERED_HTML, o le falta el permiso unfiltered_html), así que no puedes guardar, importar ni activar snippets HTML.',
+			'php_locked'           => 'Este sitio tiene bloqueada la edición de código (DISALLOW_FILE_EDIT o DISALLOW_FILE_MODS): los snippets PHP no se pueden guardar, importar ni activar, y no se ejecutan.',
+			'code_locked_title'    => 'Edición de código bloqueada.',
+			'code_locked_body'     => 'El sitio define DISALLOW_FILE_EDIT o DISALLOW_FILE_MODS: los snippets PHP no se ejecutan y aquí solo se gestionan snippets HTML.',
+			'import_skipped'       => '%d no se importaron.',
 			'starter_code'         => "// Tu código PHP aquí. No incluyas la etiqueta de apertura.\n",
 		);
 	}

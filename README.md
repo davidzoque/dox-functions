@@ -14,7 +14,13 @@ Administra funciones de PHP y scripts del sitio (el píxel de Meta, Google Analy
 
 ## Seguridad
 
-Como los snippets se ejecutan con `eval()`, en una red **multisitio** solo los **Super Admins** de red pueden crear, editar, activar o ejecutar snippets, igual que WordPress reserva la edición de código a los Super Admins. Además, si el sitio define `DISALLOW_FILE_MODS` o `DISALLOW_FILE_EDIT`, la gestión de snippets queda deshabilitada.
+Quién puede hacer qué depende del tipo de snippet:
+
+- **PHP** se ejecuta con `eval()`. Si el sitio define `DISALLOW_FILE_EDIT` o `DISALLOW_FILE_MODS`, los snippets PHP no se ejecutan y no se pueden guardar, importar, duplicar ni activar: la pantalla avisa arriba y la tarjeta del tipo PHP sale desactivada. Los que ya estaban guardados se ven y se pueden borrar.
+- **HTML, JS o CSS** se imprime sin filtrar en la web pública, así que pide el permiso `unfiltered_html`, el mismo que WordPress exige para publicar scripts en una entrada. Sin él (por ejemplo con `DISALLOW_UNFILTERED_HTML`), los snippets HTML no se pueden guardar, importar, duplicar ni activar, y la tarjeta del tipo HTML sale desactivada con el motivo. Las constantes `DISALLOW_FILE_*` no los paran: no ejecutan nada en el servidor.
+* Apagar cualquier snippet siempre se puede. El modo seguro para los dos tipos.
+
+En una red **multisitio** solo los **Super Admins** de red pueden crear, editar, activar o ejecutar snippets de los dos tipos, igual que WordPress reserva la edición de código y `unfiltered_html` a los Super Admins.
 
 ## Requisitos
 
@@ -42,7 +48,7 @@ Para los snippets **HTML, JS o CSS** (ubicación):
 - **Inicio del body**: justo al abrir `<body>` (`wp_body_open`). El `<noscript>` de Google Tag Manager. Necesita un tema que llame a `wp_body_open()`.
 - **Pie de página**: antes de cerrar `</body>` (`wp_footer`).
 
-La prioridad ordena los snippets que comparten ubicación (el menor sale antes). El modo seguro y `DISALLOW_FILE_MODS` / `DISALLOW_FILE_EDIT` paran también los HTML.
+La prioridad ordena los snippets que comparten ubicación (el menor sale antes). El modo seguro para también los HTML; `DISALLOW_FILE_MODS` / `DISALLOW_FILE_EDIT` no, porque solo bloquean el PHP (ver Seguridad).
 
 ## Modo seguro
 
